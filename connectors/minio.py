@@ -3,7 +3,8 @@ from typing import Optional
 
 import boto3
 from botocore.client import Config, ClientError
-from plugins.base.constants import MINIO_ACCESS, MINIO_ENDPOINT, MINIO_SECRET, MINIO_REGION
+
+from ..constants import MINIO_ACCESS, MINIO_ENDPOINT, MINIO_SECRET, MINIO_REGION
 
 
 class MinioClient:
