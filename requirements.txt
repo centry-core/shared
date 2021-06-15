@@ -1,1 +1,1 @@
-sqlalchemy==1.4.18
+flask_sqlalchemy==2.5.1
