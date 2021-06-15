@@ -19,7 +19,7 @@
 
 import hvac  # pylint: disable=E0401
 from requests.exceptions import ConnectionError
-import plugins.base.constants as c
+from .. import constants as c
 from ..models.vault import Vault
 
 
