@@ -1,6 +1,3 @@
-#!/usr/bin/python3
-# coding=utf-8
-
 #   Copyright 2021 getcarrier.io
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +34,7 @@ class Module(module.ModuleModel):
 
     def init(self):
         """ Init module """
-        log.info("Initializing module")
+        log.info("Initializing module Shared")
         self.context.app.config.from_object(Config())
         init_db()
         init_vault()  # won't do anything if vault is not available
@@ -62,4 +59,4 @@ class Module(module.ModuleModel):
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
-        log.info("De-initializing module")
+        log.info("De-initializing module Shared")
