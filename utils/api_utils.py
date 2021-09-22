@@ -98,12 +98,12 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
     except:
         pass
     from flask import current_app
-    storage_space_quota = current_app.config["CONTEXT"].rpc_manager.call.project_get_storage_space_quota(
-        project_id=project.id
-    )
-    statistic = current_app.config["CONTEXT"].rpc_manager.call.project_statistics(project_id=project.id)
-    if storage_space_quota != -1 and statistic["storage_space"] + file_size > storage_space_quota * 1000000:
-        raise Forbidden(description="The storage space limit allowed in the project has been exceeded")
+    # storage_space_quota = current_app.config["CONTEXT"].rpc_manager.call.project_get_storage_space_quota(
+    #     project_id=project.id
+    # )
+    # statistic = current_app.config["CONTEXT"].rpc_manager.call.project_statistics(project_id=project.id)
+    # if storage_space_quota != -1 and statistic["storage_space"] + file_size > storage_space_quota * 1000000:
+    #     raise Forbidden(description="The storage space limit allowed in the project has been exceeded")
     if create_if_not_exists:
         if bucket not in MinioClient(project=project).list_bucket():
             MinioClient(project=project).create_bucket(bucket)
