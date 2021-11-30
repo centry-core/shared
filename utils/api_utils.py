@@ -11,6 +11,7 @@
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
+import datetime
 import operator
 from json import loads
 from sqlalchemy import and_
@@ -108,3 +109,8 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
         if bucket not in MinioClient(project=project).list_bucket():
             MinioClient(project=project).create_bucket(bucket)
     MinioClient(project=project).upload_file(bucket, content, name)
+
+
+def format_date(date_object: datetime.datetime) -> str:
+    date_format = '%d.%m.%Y %H:%M'
+    return date_object.strftime(date_format)
