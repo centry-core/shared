@@ -1,8 +1,4 @@
 {
   "name": "Carrier shared library",
-  "version": "0.1",
-  "module": "plugins.shared",
-  "extract": false,
-  "depends_on": [],
-  "init_after": []
+  "version": "0.1"
 }
