@@ -71,3 +71,4 @@ class Config(metaclass=SingletonABC):
 
             self.db_engine_config["pool_size"] = 10
             self.db_engine_config["max_overflow"] = 5
+            self.db_engine_config['pool_pre_ping'] = True
