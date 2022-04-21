@@ -34,6 +34,17 @@ class Module(module.ModuleModel):
     def init(self):
         """ Init module """
         log.info("Initializing module Shared")
+
+        from .tools import rpc_tools, db_tools, db_migrations
+        self.descriptor.register_tool('rpc_tools', rpc_tools)
+        self.descriptor.register_tool('db_tools', db_tools)
+        self.descriptor.register_tool('db_migrations', db_migrations)
+
+
+
+
+
+
         self.context.app.config.from_object(Config())
         init_db()
         init_vault()  # won't do anything if vault is not available
