@@ -105,10 +105,11 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
     # statistic = current_app.config["CONTEXT"].rpc_manager.call.project_statistics(project_id=project.id)
     # if storage_space_quota != -1 and statistic["storage_space"] + file_size > storage_space_quota * 1000000:
     #     raise Forbidden(description="The storage space limit allowed in the project has been exceeded")
+    client = MinioClient(project=project)
     if create_if_not_exists:
-        if bucket not in MinioClient(project=project).list_bucket():
-            MinioClient(project=project).create_bucket(bucket)
-    MinioClient(project=project).upload_file(bucket, content, name)
+        if bucket not in client.list_bucket():
+            client.create_bucket(bucket)
+    client.upload_file(bucket, content, name)
 
 
 def format_date(date_object: datetime.datetime) -> str:

@@ -42,8 +42,6 @@ def tag_format(tags):
 
 
 def extract_tags(markup, tags: list = ['script', 'style']):
-    # log.warning('EXTRACTING TAGS')
-    # log.warning(markup)
     soup = BeautifulSoup(markup, 'html.parser')
     extracted = [s.extract() for s in soup(tags)]
     return str(soup), ''.join(map(str, extracted))
