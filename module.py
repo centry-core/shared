@@ -49,24 +49,25 @@ class Module(module.ModuleModel):
         init_db()
         init_vault()  # won't do anything if vault is not available
 
+        self.init_filters()
+
+        self.descriptor.register_tool('shared', self)
+
         @self.context.app.teardown_appcontext
         def shutdown_session(exception=None):
             db_session.remove()
 
-        @self.context.app.template_filter("ctime")
-        def convert_time(ts):
-            try:
-                return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-            except:
-                return "Not Executed"
 
-        @self.context.app.template_filter("is_zero")
-        def return_zero(val):
-            try:
-                return round(val[0] / val[1], 2)
-            except:
-                return 0
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
         log.info("De-initializing module Shared")
+
+    def init_filters(self):
+        from .filters import tag_format, extract_tags, list_pd_to_json, convert_time as ctime, return_zero as is_zero
+        # Register custom Jinja filters
+        self.context.app.template_filter()(tag_format)
+        self.context.app.template_filter()(extract_tags)
+        self.context.app.template_filter()(list_pd_to_json)
+        self.context.app.template_filter()(ctime)
+        self.context.app.template_filter()(is_zero)

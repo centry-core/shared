@@ -54,91 +54,91 @@ class SessionUser:
         return session.get(SessionUser.USER_CACHE_KEY)
 
 
-def superadmin_required(func):
-    @wraps(func)
-    def decorated_function(*args, **kwargs):
-        if is_superadmin():
-            try:
-                return func(*args, **kwargs)
-            except NotFound:
-                ...
-        return redirect(url_for("projects.list"))
-
-    return decorated_function
-
-
-def project_required(func):
-    from ...project.models.project import Project
-
-    @wraps(func)
-    def decorated_function(*args, **kwargs):
-        project_id = SessionProject.get()
-        if is_user_part_of_the_project(project_id):
-            try:
-                project = Project.query.get_or_404(project_id)
-                return func(project, *args, **kwargs)
-            except NotFound:
-                ...
-
-        return redirect(url_for("projects.list"))
-
-    return decorated_function
+# def superadmin_required(func):
+#     @wraps(func)
+#     def decorated_function(*args, **kwargs):
+#         if is_superadmin():
+#             try:
+#                 return func(*args, **kwargs)
+#             except NotFound:
+#                 ...
+#         return redirect(url_for("projects.list"))
+#
+#     return decorated_function
 
 
-def filter_projects(func):
-    @wraps(func)
-    def decorated_function(*args, **kwargs):
-        if is_superadmin():
-            try:
-                return func(only_users_projects(), *args, **kwargs)
-            except NotFound:
-                ...
-        return redirect(url_for("projects.list"))
-    return decorated_function
+# def project_required(func):
+#     from ...project.models.project import Project
+#
+#     @wraps(func)
+#     def decorated_function(*args, **kwargs):
+#         project_id = SessionProject.get()
+#         if is_user_part_of_the_project(project_id):
+#             try:
+#                 project = Project.query.get_or_404(project_id)
+#                 return func(project, *args, **kwargs)
+#             except NotFound:
+#                 ...
+#
+#         return redirect(url_for("projects.list"))
+#
+#     return decorated_function
 
 
-def _get_user_data():
-    if LOCAL_DEV:
-        return {"groups": ["/superadmin"]}
-    user_data = SessionUser.get()
-    if not user_data:
-        headers = {}
-        for header in request.headers:
-            if header[0].lower() in ["cookie", "authorization"]:
-                headers[header[0]] = header[1]
-        headers["Content-Type"] = "application/json"
-        user_data = get(f"{APP_HOST}/forward-auth/me", headers=headers).json()
-    return user_data
+# def filter_projects(func):
+#     @wraps(func)
+#     def decorated_function(*args, **kwargs):
+#         if is_superadmin():
+#             try:
+#                 return func(only_users_projects(), *args, **kwargs)
+#             except NotFound:
+#                 ...
+#         return redirect(url_for("projects.list"))
+#     return decorated_function
 
 
-def only_users_projects():
-    user_data = _get_user_data()
-    project = []
-    for group in user_data["groups"]:
-        group = group.split("/")[1]
-        try:
-            group = int(group)
-        except:
-            group = group.replace("superadmin", "all")
-        project.append(group)
-    return project
+# def _get_user_data():
+#     if LOCAL_DEV:
+#         return {"groups": ["/superadmin"]}
+#     user_data = SessionUser.get()
+#     if not user_data:
+#         headers = {}
+#         for header in request.headers:
+#             if header[0].lower() in ["cookie", "authorization"]:
+#                 headers[header[0]] = header[1]
+#         headers["Content-Type"] = "application/json"
+#         user_data = get(f"{APP_HOST}/forward-auth/me", headers=headers).json()
+#     return user_data
 
 
-def is_superadmin():
-    if LOCAL_DEV:
-        return True
-    user_data = _get_user_data()
-    if Config().SUPERADMIN_GROUP in user_data["groups"]:
-        return True
-    return False
+# def only_users_projects():
+#     user_data = _get_user_data()
+#     project = []
+#     for group in user_data["groups"]:
+#         group = group.split("/")[1]
+#         try:
+#             group = int(group)
+#         except:
+#             group = group.replace("superadmin", "all")
+#         project.append(group)
+#     return project
 
 
-def is_user_part_of_the_project(project_id):
-    user_data = _get_user_data()
-    if Config().SUPERADMIN_GROUP in user_data["groups"]:
-        return True
-    else:
-        # check permission
-        if f"/{project_id}" in user_data["groups"]:
-            return True
-    return False
+# def is_superadmin():
+#     if LOCAL_DEV:
+#         return True
+#     user_data = _get_user_data()
+#     if Config().SUPERADMIN_GROUP in user_data["groups"]:
+#         return True
+#     return False
+
+
+# def is_user_part_of_the_project(project_id):
+#     user_data = _get_user_data()
+#     if Config().SUPERADMIN_GROUP in user_data["groups"]:
+#         return True
+#     else:
+#         # check permission
+#         if f"/{project_id}" in user_data["groups"]:
+#             return True
+#     return False
