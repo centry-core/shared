@@ -16,8 +16,42 @@
 #   limitations under the License.
 
 """ DB tools """
+import json
+
+from tools import config, db
 
 
 def sqlalchemy_mapping_to_dict(obj):
     """ Make dict from sqlalchemy mappings().one() object """
     return {str(key):value for key, value in dict(obj).items()}
+
+
+class AbstractBaseMixin:
+    __table__ = None
+    __table_args__ = {"schema": config.DATABASE_SCHEMA} if config.DATABASE_SCHEMA else None
+
+    def __repr__(self) -> str:
+        return json.dumps(self.to_json(), indent=2)
+
+    def to_json(self, exclude_fields: tuple = ()) -> dict:
+        return {
+            column.name: getattr(self, column.name)
+            for column in self.__table__.columns if column.name not in exclude_fields
+        }
+
+    @staticmethod
+    def commit() -> None:
+        db.session.commit()
+
+    def add(self) -> None:
+        db.session.add(self)
+
+    def insert(self) -> None:
+        self.add()
+        self.commit()
+
+    def delete(self, commit: bool = True) -> None:
+        db.session.delete(self)
+        if commit:
+            self.commit()
+

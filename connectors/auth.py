@@ -12,18 +12,20 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-from functools import wraps
+# from functools import wraps
 from typing import Optional
 from flask import session, redirect, url_for, request
-from werkzeug.exceptions import NotFound
-from requests import get
+# from werkzeug.exceptions import NotFound
+# from requests import get
+#
+# from ..constants import APP_HOST, LOCAL_DEV
+# from ..config import Config
 
-from ..constants import APP_HOST, LOCAL_DEV
-from ..config import Config
+from tools import config
 
 
 class SessionProject:
-    PROJECT_CACHE_KEY = Config().PROJECT_CACHE_KEY
+    PROJECT_CACHE_KEY = config.PROJECT_CACHE_KEY
 
     @staticmethod
     def set(project_id: int) -> None:
@@ -39,7 +41,7 @@ class SessionProject:
 
 
 class SessionUser:
-    USER_CACHE_KEY = Config().USER_CACHE_KEY
+    USER_CACHE_KEY = config.USER_CACHE_KEY
 
     @staticmethod
     def set(user_session: dict) -> None:

@@ -4,14 +4,14 @@ from pylon.core.tools import log
 from bs4 import BeautifulSoup
 
 
-def convert_time(ts):
+def ctime(ts):
     try:
         return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
     except:
         return "Not Executed"
 
 
-def return_zero(val):
+def is_zero(val):
     try:
         return round(val[0] / val[1], 2)
     except:

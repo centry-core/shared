@@ -13,15 +13,12 @@
 #   limitations under the License.
 
 """ Module """
-from datetime import datetime
-
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
+# from pylon.core.tools.context import Context as Holder  # pylint: disable=E0611,E0401
 
-from .config import Config
-from .connectors.vault import init_vault
-from .db_manager import db_session
-from .init_db import init_db
+
+# from .db_manager import db_session
 
 
 class Module(module.ModuleModel):
@@ -30,13 +27,24 @@ class Module(module.ModuleModel):
     def __init__(self, context, descriptor):
         self.context = context
         self.descriptor = descriptor
+        self.db = None
 
     def init(self):
         """ Init module """
         log.info("Initializing module Shared")
 
-        from .tools import rpc_tools, db_tools, db_migrations
+        from .tools.config import Config
+        self.descriptor.register_tool('config', Config())
+
+        from .tools import rpc_tools, api_tools
         self.descriptor.register_tool('rpc_tools', rpc_tools)
+        self.descriptor.register_tool('api_tools', api_tools)
+
+        from .tools import db
+        self.db = db
+        self.descriptor.register_tool('db', db)
+
+        from .tools import db_tools, db_migrations
         self.descriptor.register_tool('db_tools', db_tools)
         self.descriptor.register_tool('db_migrations', db_migrations)
 
@@ -45,17 +53,23 @@ class Module(module.ModuleModel):
 
 
 
-        self.context.app.config.from_object(Config())
+        # self.context.app.config.from_object(self.config)
+        from .init_db import init_db
         init_db()
+
+        from .connectors.vault import init_vault
         init_vault()  # won't do anything if vault is not available
 
         self.init_filters()
 
         self.descriptor.register_tool('shared', self)
 
-        @self.context.app.teardown_appcontext
-        def shutdown_session(exception=None):
-            db_session.remove()
+        self.context.app.teardown_appcontext(self.shutdown_session)
+
+
+
+    def shutdown_session(self, exception=None):
+        self.db.session.remove()
 
 
 
@@ -64,7 +78,7 @@ class Module(module.ModuleModel):
         log.info("De-initializing module Shared")
 
     def init_filters(self):
-        from .filters import tag_format, extract_tags, list_pd_to_json, convert_time as ctime, return_zero as is_zero
+        from .filters import tag_format, extract_tags, list_pd_to_json, ctime, is_zero
         # Register custom Jinja filters
         self.context.app.template_filter()(tag_format)
         self.context.app.template_filter()(extract_tags)
