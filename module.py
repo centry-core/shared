@@ -33,6 +33,9 @@ class Module(module.ModuleModel):
         """ Init module """
         log.info("Initializing module Shared")
 
+        from .tools import constants
+        self.descriptor.register_tool('constants', constants)
+
         from .tools.config import Config
         self.descriptor.register_tool('config', Config())
 
@@ -48,17 +51,19 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('db_tools', db_tools)
         self.descriptor.register_tool('db_migrations', db_migrations)
 
-
-
-
-
-
         # self.context.app.config.from_object(self.config)
         from .init_db import init_db
         init_db()
 
-        from .connectors.vault import init_vault
-        init_vault()  # won't do anything if vault is not available
+        from .tools.minio_tools import MinioClient
+        self.descriptor.register_tool('MinioClient', MinioClient)
+
+        from .tools import vault_tools
+        self.descriptor.register_tool('vault_tools', vault_tools)
+        vault_tools.init_vault()  # won't do anything if vault is not available
+
+        from .tools import shared_utils
+        self.descriptor.register_tool('shared_utils', shared_utils)
 
         self.init_filters()
 
@@ -66,12 +71,8 @@ class Module(module.ModuleModel):
 
         self.context.app.teardown_appcontext(self.shutdown_session)
 
-
-
     def shutdown_session(self, exception=None):
         self.db.session.remove()
-
-
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """

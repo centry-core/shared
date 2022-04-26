@@ -16,7 +16,7 @@ import os
 from typing import Optional
 from pathlib import Path
 
-from ..constants import LOCAL_DEV, RABBIT_HOST, RABBIT_PORT, RABBIT_USER, RABBIT_PASSWORD
+from .constants import LOCAL_DEV, RABBIT_HOST, RABBIT_PORT, RABBIT_USER, RABBIT_PASSWORD
 from ..paterns import SingletonABC
 
 

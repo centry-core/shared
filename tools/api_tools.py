@@ -18,7 +18,8 @@ from sqlalchemy import and_
 from flask_restful import Api, Resource, reqparse
 from werkzeug.exceptions import Forbidden
 
-from ..connectors.minio import MinioClient
+from .minio_tools import MinioClient
+from .rpc_tools import RpcMixin
 
 
 def str2bool(v):
@@ -66,8 +67,8 @@ def _calcualte_limit(limit, total):
 
 
 def get(project_id, args, data_model, additional_filter=None):
-    from flask import current_app
-    project = current_app.config["CONTEXT"].rpc_manager.call.project_get_or_404(project_id=project_id)
+    rpc = RpcMixin().rpc
+    project = rpc.call.project_get_or_404(project_id=project_id)
     limit_ = args.get("limit")
     offset_ = args.get("offset")
     if args.get("sort"):

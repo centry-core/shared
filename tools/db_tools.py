@@ -18,7 +18,9 @@
 """ DB tools """
 import json
 
-from tools import config, db
+from tools import config
+
+from .db import session
 
 
 def sqlalchemy_mapping_to_dict(obj):
@@ -41,17 +43,17 @@ class AbstractBaseMixin:
 
     @staticmethod
     def commit() -> None:
-        db.session.commit()
+        session.commit()
 
     def add(self) -> None:
-        db.session.add(self)
+        session.add(self)
 
     def insert(self) -> None:
         self.add()
         self.commit()
 
     def delete(self, commit: bool = True) -> None:
-        db.session.delete(self)
+        session.delete(self)
         if commit:
             self.commit()
 
