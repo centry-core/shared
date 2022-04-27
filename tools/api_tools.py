@@ -18,7 +18,8 @@ from sqlalchemy import and_
 from flask_restful import Api, Resource, reqparse
 from werkzeug.exceptions import Forbidden
 
-from ..connectors.minio import MinioClient
+from .minio_tools import MinioClient
+from .rpc_tools import RpcMixin
 
 
 def str2bool(v):
@@ -66,8 +67,8 @@ def _calcualte_limit(limit, total):
 
 
 def get(project_id, args, data_model, additional_filter=None):
-    from flask import current_app
-    project = current_app.config["CONTEXT"].rpc_manager.call.project_get_or_404(project_id=project_id)
+    rpc = RpcMixin().rpc
+    project = rpc.call.project_get_or_404(project_id=project_id)
     limit_ = args.get("limit")
     offset_ = args.get("offset")
     if args.get("sort"):
@@ -105,10 +106,11 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
     # statistic = current_app.config["CONTEXT"].rpc_manager.call.project_statistics(project_id=project.id)
     # if storage_space_quota != -1 and statistic["storage_space"] + file_size > storage_space_quota * 1000000:
     #     raise Forbidden(description="The storage space limit allowed in the project has been exceeded")
+    client = MinioClient(project=project)
     if create_if_not_exists:
-        if bucket not in MinioClient(project=project).list_bucket():
-            MinioClient(project=project).create_bucket(bucket)
-    MinioClient(project=project).upload_file(bucket, content, name)
+        if bucket not in client.list_bucket():
+            client.create_bucket(bucket)
+    client.upload_file(bucket, content, name)
 
 
 def format_date(date_object: datetime.datetime) -> str:

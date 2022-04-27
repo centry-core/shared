@@ -17,10 +17,10 @@ from typing import Optional
 from pathlib import Path
 
 from .constants import LOCAL_DEV, RABBIT_HOST, RABBIT_PORT, RABBIT_USER, RABBIT_PASSWORD
-from .paterns import SingletonABC
+from ..paterns import SingletonABC
 
 
-basedir = os.path.abspath(os.path.dirname(__file__))
+# basedir = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config(metaclass=SingletonABC):
