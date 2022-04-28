@@ -62,8 +62,8 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('vault_tools', vault_tools)
         vault_tools.init_vault()  # won't do anything if vault is not available
 
-        from .tools import shared_utils
-        self.descriptor.register_tool('shared_utils', shared_utils)
+        from .tools import data_tools
+        self.descriptor.register_tool('data_tools', data_tools)
 
         self.init_filters()
 
