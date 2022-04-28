@@ -55,7 +55,7 @@ class Module(module.ModuleModel):
         from .init_db import init_db
         init_db()
 
-        from .tools.minio_tools import MinioClient
+        from .tools.minio_client import MinioClient
         self.descriptor.register_tool('MinioClient', MinioClient)
 
         from .tools import vault_tools
@@ -69,10 +69,10 @@ class Module(module.ModuleModel):
 
         self.descriptor.register_tool('shared', self)
 
-        self.context.app.teardown_appcontext(self.shutdown_session)
-
-    def shutdown_session(self, exception=None):
-        self.db.session.remove()
+    #     self.context.app.teardown_appcontext(self.shutdown_session)
+    #
+    # def shutdown_session(self, exception=None):
+    #     self.db.session.remove()
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
