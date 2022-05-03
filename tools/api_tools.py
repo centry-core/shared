@@ -18,7 +18,7 @@ from sqlalchemy import and_
 from flask_restful import Api, Resource, reqparse
 from werkzeug.exceptions import Forbidden
 
-from .minio_tools import MinioClient
+from .minio_client import MinioClient
 from .rpc_tools import RpcMixin
 
 

@@ -55,24 +55,24 @@ class Module(module.ModuleModel):
         from .init_db import init_db
         init_db()
 
-        from .tools.minio_tools import MinioClient
+        from .tools.minio_client import MinioClient
         self.descriptor.register_tool('MinioClient', MinioClient)
 
         from .tools import vault_tools
         self.descriptor.register_tool('vault_tools', vault_tools)
         vault_tools.init_vault()  # won't do anything if vault is not available
 
-        from .tools import shared_utils
-        self.descriptor.register_tool('shared_utils', shared_utils)
+        from .tools import data_tools
+        self.descriptor.register_tool('data_tools', data_tools)
 
         self.init_filters()
 
         self.descriptor.register_tool('shared', self)
 
-        self.context.app.teardown_appcontext(self.shutdown_session)
-
-    def shutdown_session(self, exception=None):
-        self.db.session.remove()
+    #     self.context.app.teardown_appcontext(self.shutdown_session)
+    #
+    # def shutdown_session(self, exception=None):
+    #     self.db.session.remove()
 
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
