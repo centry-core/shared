@@ -14,6 +14,8 @@
 import datetime
 import operator
 from json import loads
+
+from pylon.core.tools import log
 from sqlalchemy import and_
 from flask_restful import Api, Resource, reqparse
 from werkzeug.exceptions import Forbidden
@@ -66,7 +68,7 @@ def _calcualte_limit(limit, total):
     return total if limit == 'All' or limit == 0 else limit
 
 
-def get(project_id, args, data_model, additional_filter=None):
+def get(project_id: int, args: dict, data_model, additional_filter=None):
     rpc = RpcMixin().rpc
     project = rpc.call.project_get_or_404(project_id=project_id)
     limit_ = args.get("limit")
@@ -81,7 +83,7 @@ def get(project_id, args, data_model, additional_filter=None):
         for key, value in additional_filter.items():
             filter_.append(operator.eq(getattr(data_model, key), value))
     if args.get('filter'):
-        for key, value in loads(args.get("filter")).items():
+        for key, value in loads(args.get('filter')).items():
             filter_.append(operator.eq(getattr(data_model, key), value))
     filter_ = and_(*tuple(filter_))
     total = data_model.query.order_by(sort_rule).filter(filter_).count()
