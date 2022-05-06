@@ -36,9 +36,7 @@ def wrap_exceptions(target_exception):
                 return func(*_args, **_kvargs)
             except BaseException as exception_data:
                 if isinstance(exception_data, _target_exception):
-                    log.warning('isinstance(exception_data, _target_exception), %s %s', exception_data, _target_exception)
                     raise exception_data
-                log.warning('_target_exception, %s', _target_exception)
                 raise _target_exception(traceback.format_exc())
         #
         return _decorated
