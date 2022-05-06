@@ -20,6 +20,7 @@
 import functools
 import traceback
 from flask import current_app
+from pylon.core.tools import log
 from pylon.core.tools.rpc import RpcManager
 
 
