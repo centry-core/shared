@@ -55,6 +55,7 @@ class RpcMixin:
     def rpc(self):
         if not self._rpc:
             self.set_rpc_manager(current_app.config['CONTEXT'].rpc_manager)
+            log.info('RpcMixin got rpc_manager from context')
         return self._rpc
 
     @rpc.setter
