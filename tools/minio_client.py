@@ -102,11 +102,15 @@ class MinioClient:
                 "Rules": [
                     {
                         "Expiration": {
-                            "NoncurrentVersionExpiration": days,
-                            "Days": days,
+                            # "NoncurrentVersionExpiration": days,
+                            "Days": days
                             # "ExpiredObjectDeleteMarker": True
                         },
+                        "NoncurrentVersionExpiration": {
+                            'NoncurrentDays': days
+                        },
                         "ID": "bucket-retention-policy",
+                        'Filter': {'Prefix': ''},
                         "Status": "Enabled"
                     }
                 ]
