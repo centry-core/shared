@@ -69,6 +69,6 @@ class Config(metaclass=SingletonABC):
                 database=database
             )
 
-            self.db_engine_config["pool_size"] = 20
-            self.db_engine_config["max_overflow"] = 10
+            self.db_engine_config["pool_size"] = 50
+            self.db_engine_config["max_overflow"] = 100
             self.db_engine_config['pool_pre_ping'] = True
