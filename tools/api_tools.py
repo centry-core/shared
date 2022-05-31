@@ -68,7 +68,7 @@ def _calcualte_limit(limit, total):
     return total if limit == 'All' or limit == 0 else limit
 
 
-def get(project_id: int, args: dict, data_model, additional_filter=None):
+def get(project_id: int, args: dict, data_model, additional_filter: dict = None):
     rpc = RpcMixin().rpc
     project = rpc.call.project_get_or_404(project_id=project_id)
     limit_ = args.get("limit")
