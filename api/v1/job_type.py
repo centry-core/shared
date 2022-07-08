@@ -1,4 +1,5 @@
 from flask_restful import Resource
+import random
 
 
 class API(Resource):
@@ -11,7 +12,7 @@ class API(Resource):
 
     def get(self, project_id: int, test_uid: str):
         self.module.context.rpc_manager.call.project_get_or_404(project_id=project_id)
-        PLUGINS_TO_SEARCH = ['security_dast', 'backend_performance']
+        PLUGINS_TO_SEARCH = random.shuffle(['security_dast', 'backend_performance'])
 
         for plugin in PLUGINS_TO_SEARCH:
             job_type = self.module.context.rpc_manager.call_function_with_timeout(
