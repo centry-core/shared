@@ -5,7 +5,6 @@ from pydantic import BaseModel, validator, AnyUrl, parse_obj_as
 class TestParameter(BaseModel):
     class Config:
         anystr_strip_whitespace = True
-        anystr_lower = True
 
     __type_mapping = {
         'url': AnyUrl,
