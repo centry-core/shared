@@ -72,6 +72,8 @@ class Module(module.ModuleModel):
 
         self.descriptor.register_tool('shared', self)
 
+        self.descriptor.init_api()
+
     #     self.context.app.teardown_appcontext(self.shutdown_session)
     #
     # def shutdown_session(self, exception=None):
