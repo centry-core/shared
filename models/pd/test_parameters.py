@@ -56,7 +56,7 @@ class TestParameter(BaseModel):
 
     @validator('default')
     def validate_required(cls, value, values):
-        if values['name'] in cls._required_params:
+        if values.get('name') in cls._required_params:
             assert value and value != [''], f'{values["name"]} is required'
         return value
 
@@ -87,7 +87,7 @@ class TestParamsBase(BaseModel):
     @validator('test_parameters')
     def required_test_param(cls, value):
         lacking_values = cls._required_params.difference(set(i.name for i in value))
-        assert not lacking_values, f'The following parameters are required: {" ".join(lacking_values)}'
+        assert not lacking_values, f'The following parameters are required: {", ".join(lacking_values)}'
         return value
 
 
