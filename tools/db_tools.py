@@ -57,3 +57,6 @@ class AbstractBaseMixin:
         if commit:
             self.commit()
 
+    def rollback(self):
+        session.rollback()
+
