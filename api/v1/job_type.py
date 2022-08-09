@@ -1,5 +1,6 @@
 from flask_restful import Resource
-import random
+
+from pylon.core.tools import log
 
 
 class API(Resource):
@@ -12,10 +13,7 @@ class API(Resource):
 
     def get(self, project_id: int, test_uid: str):
         self.module.context.rpc_manager.call.project_get_or_404(project_id=project_id)
-        PLUGINS_TO_SEARCH = ['security_dast', 'backend_performance']
-        random.shuffle(PLUGINS_TO_SEARCH)
-
-        for plugin in PLUGINS_TO_SEARCH:
+        for plugin in self.module.job_type_rpcs:
             job_type = self.module.context.rpc_manager.call_function_with_timeout(
                 func=f'{plugin}_job_type_by_uid',
                 timeout=5,

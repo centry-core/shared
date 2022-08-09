@@ -28,6 +28,7 @@ class Module(module.ModuleModel):
         self.context = context
         self.descriptor = descriptor
         self.db = None
+        self.job_type_rpcs = set()
 
     def init(self):
         """ Init module """
