@@ -2,7 +2,7 @@ from sqlalchemy.sql import expression
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.types import DateTime
 
-from . import files, arrays, reports
+from . import files, arrays, charts
 
 
 class utcnow(expression.FunctionElement):
