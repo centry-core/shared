@@ -60,7 +60,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def str_to_timestamp(str_ts):
+def str_to_timestamp(str_ts: str) -> float:
     timestamp = str_ts.replace("Z", "")
     if "." not in timestamp:
         timestamp += "."

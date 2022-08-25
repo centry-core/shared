@@ -25,7 +25,7 @@ from .db import session
 
 def sqlalchemy_mapping_to_dict(obj):
     """ Make dict from sqlalchemy mappings().one() object """
-    return {str(key):value for key, value in dict(obj).items()}
+    return {str(key): value for key, value in dict(obj).items()}
 
 
 class AbstractBaseMixin:
