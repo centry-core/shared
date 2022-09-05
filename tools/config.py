@@ -37,6 +37,7 @@ class Config(metaclass=SingletonABC):
 
     SECRET_KEY = os.environ.get("SECRET_KEY", ":iMHK_F`4hyrE;Wfr;+Ui8l&R3wYiB")
     PROJECT_CACHE_KEY = os.environ.get("PROJECT_CACHE_KEY", "project_cache_key")
+    PROJECT_CACHE_PLUGINS = os.environ.get("PROJECT_CACHE_PLUGINS", "project_cache_plugins")
     USER_CACHE_KEY = os.environ.get("USER_CACHE_KEY", "user_session")
     DEV = LOCAL_DEV
     RABBIT_HOST = RABBIT_HOST

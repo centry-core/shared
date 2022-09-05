@@ -16,7 +16,7 @@
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
 # from pylon.core.tools.context import Context as Holder  # pylint: disable=E0611,E0401
-
+from .tools.jinja_filters import humanize_timestamp, format_datetime
 
 # from .db_manager import db_session
 
@@ -74,6 +74,10 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('shared', self)
 
         self.descriptor.init_api()
+
+        self.context.app.jinja_env.filters['humanize_timestamp'] = humanize_timestamp
+        self.context.app.jinja_env.filters['format_datetime'] = format_datetime
+
 
     #     self.context.app.teardown_appcontext(self.shutdown_session)
     #
