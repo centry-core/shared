@@ -13,9 +13,12 @@
 #   limitations under the License.
 
 """ Module """
+
+import pymongo  # pylint: disable=E0401
+
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
-# from pylon.core.tools.context import Context as Holder  # pylint: disable=E0611,E0401
+from pylon.core.tools.context import Context as Holder  # pylint: disable=E0611,E0401
 from .tools.jinja_filters import humanize_timestamp, format_datetime
 
 # from .db_manager import db_session
@@ -28,6 +31,7 @@ class Module(module.ModuleModel):
         self.context = context
         self.descriptor = descriptor
         self.db = None
+        self.mongo = None
         self.job_type_rpcs = set()
 
     def init(self):
@@ -58,6 +62,16 @@ class Module(module.ModuleModel):
         # self.context.app.config.from_object(self.config)
         from .init_db import init_db
         init_db()
+
+        self.mongo = Holder()
+        self.mongo.url = self.descriptor.config.get("mongo_connection", None)
+        self.mongo.options = self.descriptor.config.get("mongo_options", dict())
+        self.mongo.db_name = self.descriptor.config.get("mongo_db", None)
+        self.mongo.client = pymongo.MongoClient(
+            self.mongo.url, **self.mongo.options
+        )
+        self.mongo.db = self.mongo.client[self.mongo.db_name]
+        self.descriptor.register_tool("mongo", self.mongo)
 
         from .tools.minio_client import MinioClient
         self.descriptor.register_tool('MinioClient', MinioClient)
