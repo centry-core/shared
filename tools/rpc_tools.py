@@ -22,6 +22,7 @@ import traceback
 from flask import current_app
 from pylon.core.tools import log
 from pylon.core.tools.rpc import RpcManager
+from pylon.core.tools.event import EventManager
 
 
 def wrap_exceptions(target_exception):
@@ -61,3 +62,22 @@ class RpcMixin:
     @rpc.setter
     def rpc(self, rpc_manager: RpcManager):
         self.set_rpc_manager(rpc_manager)
+
+
+class EventManagerMixin:
+    _event_manager = None
+
+    @classmethod
+    def set_manager(cls, event_manager: EventManager):
+        cls._event_manager = event_manager
+
+    @property
+    def event_manager(self):
+        if not self._event_manager:
+            self.set_event_manager(current_app.config['CONTEXT'].event_manager)
+            log.info('EventMixin got event_manager from context')
+        return self._event_manager
+
+    @event_manager.setter
+    def event_manager(self, event_manager: EventManager):
+        self.set_event_manager(event_manager)

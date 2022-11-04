@@ -29,6 +29,7 @@ def sqlalchemy_mapping_to_dict(obj):
 
 
 class AbstractBaseMixin:
+    _session = session
     __table__ = None
     __table_args__ = {"schema": config.DATABASE_SCHEMA} if config.DATABASE_SCHEMA else None
 
