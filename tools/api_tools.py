@@ -18,7 +18,7 @@ from json import loads
 from pylon.core.tools import log
 from sqlalchemy import and_
 from flask_restful import Api, Resource, reqparse
-from werkzeug.exceptions import Forbidden
+# from werkzeug.exceptions import Forbidden
 
 from .minio_client import MinioClient
 from .rpc_tools import RpcMixin
@@ -101,7 +101,7 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
         f.remove()
     except:
         pass
-    from flask import current_app
+    # from flask import current_app
     # storage_space_quota = current_app.config["CONTEXT"].rpc_manager.call.project_get_storage_space_quota(
     #     project_id=project.id
     # )

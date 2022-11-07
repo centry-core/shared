@@ -38,8 +38,9 @@ class Module(module.ModuleModel):
         """ Init module """
         log.info("Initializing module Shared")
 
-        from .tools.rpc_tools import RpcMixin
+        from .tools.rpc_tools import RpcMixin, EventManagerMixin
         RpcMixin.set_rpc_manager(self.context.rpc_manager)
+        EventManagerMixin.set_manager(self.context.event_manager)
 
         from .tools import constants
         self.descriptor.register_tool('constants', constants)
