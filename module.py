@@ -87,14 +87,6 @@ class Module(module.ModuleModel):
 
         self.descriptor.init_api()
 
-        # self.context.app.jinja_env.filters['humanize_timestamp'] = humanize_timestamp
-        # self.context.app.jinja_env.filters['format_datetime'] = format_datetime
-
-    #     self.context.app.teardown_appcontext(self.shutdown_session)
-    #
-    # def shutdown_session(self, exception=None):
-    #     self.db.session.remove()
-
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
         log.info("De-initializing module Shared")
