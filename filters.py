@@ -1,21 +1,9 @@
 from datetime import datetime
+from typing import Union
 
 from pylon.core.tools import log
 from bs4 import BeautifulSoup
-
-
-def ctime(ts):
-    try:
-        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-    except:
-        return "Not Executed"
-
-
-def is_zero(val):
-    try:
-        return round(val[0] / val[1], 2)
-    except:
-        return 0
+import json
 
 
 def tag_format(tags):
@@ -53,5 +41,20 @@ def map_method_call(lst: list, method_name: str):
 
 
 def list_pd_to_json(lst: list):
-    import json
     return json.dumps([i.dict() for i in lst], ensure_ascii=False)
+
+
+def pretty_json(data: Union[dict, str], indent: int = 2):
+    d = data
+    if isinstance(data, str):
+        d = json.loads(data)
+    return json.dumps(d, ensure_ascii=False, indent=indent)
+
+
+def humanize_timestamp(timestamp: str):
+    dt = datetime.fromtimestamp(int(timestamp)/1000.0)
+    return format_datetime(dt)
+
+
+def format_datetime(dt: datetime):
+    return dt.strftime("%d.%m.%Y, %H:%M:%S")
