@@ -32,8 +32,10 @@ class MinioClient:
 
     def format_bucket_name(self, bucket: str) -> str:
         prefix = f"p--{self.project.id}."
-        if bucket == f"{prefix}{bucket}":
-            return bucket.replace(prefix, "", 1)
+        # if bucket == f"{prefix}{bucket}":
+        #     return bucket.replace(prefix, "", 1)
+        if bucket.startswith(prefix):
+            return bucket
         return f"{prefix}{bucket}"
 
     def list_bucket(self) -> list:
@@ -53,9 +55,10 @@ class MinioClient:
             )
         except ClientError as client_error:
             self._logger.warning(str(client_error))
+            return str(client_error)
         except Exception as exc:
             self._logger.error(str(exc))
-        return {}
+            return str(exc)
 
     def list_files(self, bucket: str) -> list:
         response = self.s3_client.list_objects_v2(Bucket=self.format_bucket_name(bucket))
