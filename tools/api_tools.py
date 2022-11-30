@@ -111,7 +111,8 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
     client = MinioClient(project=project)
     if create_if_not_exists:
         if bucket not in client.list_bucket():
-            client.create_bucket(bucket)
+            bucket_type = 'system' if bucket in ('tasks', 'tests') else 'local'
+            client.create_bucket(bucket=bucket, bucket_type=bucket_type)
     client.upload_file(bucket, content, name)
 
 
