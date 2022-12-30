@@ -1,4 +1,5 @@
 import logging
+from json import loads
 from typing import Optional
 
 import boto3
@@ -148,3 +149,32 @@ class MinioClient:
                 'TagSet': tag_set
             },
         )
+    
+    def select_object_content(self, bucket: str, file_name: str, expression_addon: str = '') -> list:
+        response = self.s3_client.select_object_content(
+                    Bucket=bucket,
+                    Key=file_name,
+                    ExpressionType='SQL',
+                    Expression=f"select * from s3object s{expression_addon}",
+                    InputSerialization={
+                        'CSV': {
+                            "FileHeaderInfo": "USE",
+                        },
+                        'CompressionType': 'GZIP',
+                    },
+                    OutputSerialization={'JSON': {}},
+                )
+        results = []
+        for event in response['Payload']:
+            if 'Records' in event:
+                payload = event['Records']['Payload'].decode('utf-8')
+                for line in payload.split():
+                    try:
+                        results.append(loads(line))
+                    except:
+                        pass
+        return results
+                    
+                
+
+        
