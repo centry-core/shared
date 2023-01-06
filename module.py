@@ -19,9 +19,6 @@ import pymongo  # pylint: disable=E0401
 from pylon.core.tools import log  # pylint: disable=E0611,E0401
 from pylon.core.tools import module  # pylint: disable=E0611,E0401
 from pylon.core.tools.context import Context as Holder  # pylint: disable=E0611,E0401
-from .tools.jinja_filters import humanize_timestamp, format_datetime
-
-# from .db_manager import db_session
 
 
 class Module(module.ModuleModel):
@@ -90,24 +87,18 @@ class Module(module.ModuleModel):
 
         self.descriptor.init_api()
 
-        self.context.app.jinja_env.filters['humanize_timestamp'] = humanize_timestamp
-        self.context.app.jinja_env.filters['format_datetime'] = format_datetime
-
-
-    #     self.context.app.teardown_appcontext(self.shutdown_session)
-    #
-    # def shutdown_session(self, exception=None):
-    #     self.db.session.remove()
-
     def deinit(self):  # pylint: disable=R0201
         """ De-init module """
         log.info("De-initializing module Shared")
 
     def init_filters(self):
-        from .filters import tag_format, extract_tags, list_pd_to_json, ctime, is_zero
         # Register custom Jinja filters
+        from .filters import tag_format, extract_tags, list_pd_to_json, \
+            map_method_call, pretty_json, humanize_timestamp, format_datetime
         self.context.app.template_filter()(tag_format)
         self.context.app.template_filter()(extract_tags)
         self.context.app.template_filter()(list_pd_to_json)
-        self.context.app.template_filter()(ctime)
-        self.context.app.template_filter()(is_zero)
+        self.context.app.template_filter()(map_method_call)
+        self.context.app.template_filter()(pretty_json)
+        self.context.app.template_filter()(humanize_timestamp)
+        self.context.app.template_filter()(format_datetime)
