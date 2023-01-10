@@ -18,7 +18,9 @@
 """ DB tools """
 import json
 
+from datetime import datetime
 from tools import config
+from pylon.core.tools import log
 
 from .db import session
 
@@ -37,10 +39,15 @@ class AbstractBaseMixin:
         return json.dumps(self.to_json(), indent=2)
 
     def to_json(self, exclude_fields: tuple = ()) -> dict:
-        return {
-            column.name: getattr(self, column.name)
-            for column in self.__table__.columns if column.name not in exclude_fields
-        }
+        log.warning('Be cautious "to_json()". Better write your own serialization for %s', getattr(self, '__tablename__'))
+        result = dict()
+        for column in self.__table__.columns:
+            if column.name not in exclude_fields:
+                value = getattr(self, column.name)
+                if isinstance(value, datetime):
+                    value = value.isoformat()
+                result[column.name] = value
+        return result
 
     @staticmethod
     def commit() -> None:
@@ -60,4 +67,8 @@ class AbstractBaseMixin:
 
     def rollback(self):
         session.rollback()
+
+    @property
+    def serialized(self):
+        raise NotImplementedError
 

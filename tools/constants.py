@@ -14,6 +14,7 @@
 
 from os import environ
 from datetime import datetime
+from typing import Union
 from urllib.parse import urlparse
 
 LOCAL_DEV = True
@@ -60,8 +61,10 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def str_to_timestamp(str_ts: str) -> float:
-    timestamp = str_ts.replace("Z", "")
+def str_to_timestamp(t: Union[str, datetime]) -> float:
+    if isinstance(t, datetime):
+        return t.timestamp()
+    timestamp = t.replace("Z", "")
     if "." not in timestamp:
         timestamp += "."
     timestamp += "".join(["0" for _ in range(26 - len(timestamp))])
