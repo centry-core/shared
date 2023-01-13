@@ -61,17 +61,6 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def str_to_timestamp(t: Union[str, datetime]) -> float:
-    if isinstance(t, datetime):
-        return t.timestamp()
-    timestamp = t.replace("Z", "")
-    if "." not in timestamp:
-        timestamp += "."
-    timestamp += "".join(["0" for _ in range(26 - len(timestamp))])
-    timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f").timestamp()
-    return timestamp
-
-
 UNZIP_DOCKERFILE = """FROM kubeless/unzip:latest
 ADD {localfile} /tmp/{docker_path}
 ENTRYPOINT ["unzip", "/tmp/{docker_path}", "-d", "/tmp/unzipped"]
