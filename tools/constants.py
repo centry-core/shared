@@ -14,6 +14,7 @@
 
 from os import environ
 from datetime import datetime
+from typing import Union
 from urllib.parse import urlparse
 
 LOCAL_DEV = True
@@ -58,15 +59,6 @@ GRID_ROUTER_URL = environ.get("GRID_ROUTER_URL", f"{EXTERNAL_LOKI_HOST}:4444/quo
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def str_to_timestamp(str_ts: str) -> float:
-    timestamp = str_ts.replace("Z", "")
-    if "." not in timestamp:
-        timestamp += "."
-    timestamp += "".join(["0" for _ in range(26 - len(timestamp))])
-    timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f").timestamp()
-    return timestamp
 
 
 UNZIP_DOCKERFILE = """FROM kubeless/unzip:latest

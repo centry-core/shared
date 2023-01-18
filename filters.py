@@ -48,7 +48,11 @@ def pretty_json(data: Union[dict, str], indent: int = 2):
     d = data
     if isinstance(data, str):
         d = json.loads(data)
-    return json.dumps(d, ensure_ascii=False, indent=indent)
+    try:
+        return json.dumps(d, ensure_ascii=False, indent=indent)
+    except Exception as e:
+        log.warning('pretty_json Error %s', e)
+    return ''
 
 
 def humanize_timestamp(timestamp: str):
