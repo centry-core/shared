@@ -61,6 +61,10 @@ class Module(module.ModuleModel):
         from .init_db import init_db
         init_db()
 
+        @self.context.app.teardown_appcontext
+        def shutdown_session(exception=None):
+            db.session.remove()
+
         self.mongo = Holder()
         self.mongo.url = self.descriptor.config.get("mongo_connection", None)
         self.mongo.options = self.descriptor.config.get("mongo_options", dict())
