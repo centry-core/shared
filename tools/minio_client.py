@@ -4,6 +4,7 @@ from typing import Optional
 
 import boto3
 from botocore.client import Config, ClientError
+from pylon.core.tools import log
 
 from .constants import MINIO_ACCESS, MINIO_ENDPOINT, MINIO_SECRET, MINIO_REGION
 
@@ -151,19 +152,26 @@ class MinioClient:
         )
     
     def select_object_content(self, bucket: str, file_name: str, expression_addon: str = '') -> list:
-        response = self.s3_client.select_object_content(
-                    Bucket=bucket,
-                    Key=file_name,
-                    ExpressionType='SQL',
-                    Expression=f"select * from s3object s{expression_addon}",
-                    InputSerialization={
-                        'CSV': {
-                            "FileHeaderInfo": "USE",
+        try:
+            response = self.s3_client.select_object_content(
+                        Bucket=bucket,
+                        Key=file_name,
+                        ExpressionType='SQL',
+                        Expression=f"select * from s3object s{expression_addon}",
+                        InputSerialization={
+                            'CSV': {
+                                "FileHeaderInfo": "USE",
+                            },
+                            'CompressionType': 'GZIP',
                         },
-                        'CompressionType': 'GZIP',
-                    },
-                    OutputSerialization={'JSON': {}},
-                )
+                        OutputSerialization={'JSON': {}},
+                    )
+        except ClientError as ex:
+            if ex.response['Error']['Code'] == 'NoSuchKey':
+                log.error(f'Cannot find file "{file_name}" in bucket "{bucket}"')
+                return []
+            else:
+                raise
         results = []
         for event in response['Payload']:
             if 'Records' in event:
@@ -171,7 +179,7 @@ class MinioClient:
                 for line in payload.split():
                     try:
                         results.append(loads(line))
-                    except:
+                    except Exception:
                         pass
         return results
                     
