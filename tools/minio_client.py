@@ -6,10 +6,18 @@ import boto3
 from botocore.client import Config, ClientError
 
 from .constants import MINIO_ACCESS, MINIO_ENDPOINT, MINIO_SECRET, MINIO_REGION
+from .rpc_tools import RpcMixin
 
 
 class MinioClient:
     PROJECT_SECRET_KEY: str = "minio_aws_access"
+
+    @classmethod
+    def from_project_id(cls, project_id: int, logger: Optional[logging.Logger] = None, rpc_manager=None):
+        if not rpc_manager:
+            rpc_manager = RpcMixin().rpc
+        project = rpc_manager.call.project_get_or_404(project_id=project_id)
+        return cls(project, logger)
 
     def __init__(self, project, logger: Optional[logging.Logger] = None):
         self._logger = logger or logging.getLogger(self.__class__.__name__.lower())
@@ -67,8 +75,10 @@ class MinioClient:
     def list_files(self, bucket: str) -> list:
         response = self.s3_client.list_objects_v2(Bucket=self.format_bucket_name(bucket))
         files = [
-            {"name": each["Key"], "size": each["Size"],
-             "modified": each["LastModified"].strftime("%Y-%m-%d %H:%M:%S")}
+            {
+                "name": each["Key"], "size": each["Size"],
+                "modified": each["LastModified"].isoformat()
+            }
             for each in response.get("Contents", {})
         ]
         continuation_token = response.get("NextContinuationToken")
@@ -76,9 +86,11 @@ class MinioClient:
             response = self.s3_client.list_objects_v2(Bucket=self.format_bucket_name(bucket),
                                                       ContinuationToken=continuation_token)
             appendage = [
-                {"name": each["Key"],
+                {
+                    "name": each["Key"],
                     "size": each["Size"],
-                    "modified": each["LastModified"].strftime("%Y-%m-%d %H:%M:%S")}
+                    "modified": each["LastModified"].isoformat()
+                }
                 for each in response.get("Contents", {})
             ]
             if not appendage:
@@ -140,7 +152,7 @@ class MinioClient:
             return self.s3_client.get_bucket_tagging(Bucket=self.format_bucket_name(bucket))
         except ClientError:
             return {}
-        
+
     def set_bucket_tags(self, bucket: str, tags: dict) -> None:
         tag_set = [{'Key': k, 'Value': v} for k, v in tags.items()]
         self.s3_client.put_bucket_tagging(
@@ -149,21 +161,21 @@ class MinioClient:
                 'TagSet': tag_set
             },
         )
-    
+
     def select_object_content(self, bucket: str, file_name: str, expression_addon: str = '') -> list:
         response = self.s3_client.select_object_content(
-                    Bucket=bucket,
-                    Key=file_name,
-                    ExpressionType='SQL',
-                    Expression=f"select * from s3object s{expression_addon}",
-                    InputSerialization={
-                        'CSV': {
-                            "FileHeaderInfo": "USE",
-                        },
-                        'CompressionType': 'GZIP',
-                    },
-                    OutputSerialization={'JSON': {}},
-                )
+            Bucket=bucket,
+            Key=file_name,
+            ExpressionType='SQL',
+            Expression=f"select * from s3object s{expression_addon}",
+            InputSerialization={
+                'CSV': {
+                    "FileHeaderInfo": "USE",
+                },
+                'CompressionType': 'GZIP',
+            },
+            OutputSerialization={'JSON': {}},
+        )
         results = []
         for event in response['Payload']:
             if 'Records' in event:
@@ -174,7 +186,3 @@ class MinioClient:
                     except:
                         pass
         return results
-                    
-                
-
-        
