@@ -188,7 +188,7 @@ class MinioClient:
         for event in response['Payload']:
             if 'Records' in event:
                 payload = event['Records']['Payload'].decode('utf-8')
-                for line in payload.split():
+                for line in payload.split('\n'):
                     try:
                         results.append(loads(line))
                     except Exception:
