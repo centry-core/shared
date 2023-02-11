@@ -148,6 +148,17 @@ class MinioClient:
             total_size += each["Size"]
         return total_size
 
+    def get_file_size(self, bucket: str, filename: str) -> int:
+        response = self.s3_client.list_objects_v2(Bucket=self.format_bucket_name(bucket)).get("Contents", {})
+
+        file_size = 0
+        for each in response:
+            if str(each["Key"]).lower() == str(filename).lower():
+                file_size += each["Size"]
+                break
+
+        return file_size
+
     def get_bucket_tags(self, bucket: str) -> dict:
         try:
             return self.s3_client.get_bucket_tagging(Bucket=self.format_bucket_name(bucket))
