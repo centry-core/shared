@@ -205,3 +205,13 @@ class MinioClient:
                     except Exception:
                         pass
         return results
+
+    def is_file_exist(self, bucket: str, file_name: str):
+        response = self.s3_client.list_objects_v2(
+            Bucket=bucket,
+            Prefix=file_name,
+        )
+        for obj in response.get('Contents', []):
+            if obj['Key'] == file_name:
+                return True
+        return False
