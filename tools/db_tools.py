@@ -72,3 +72,7 @@ class AbstractBaseMixin:
     def serialized(self):
         raise NotImplementedError
 
+
+def bulk_save(objects):
+    session.bulk_save_objects(objects)
+    session.commit()
