@@ -7,11 +7,12 @@ def color_gen(n: int, max_step: int = 51) -> Generator:
         yield 0, 0, 0
     else:
         color = random.choices(range(256), k=3)
-        step = (256 * 256 * 256) // n % 256
-        step = max(step, 1)
-        step = min(step, max_step)
+        # step = (256 * 256 * 256) // n % 256
+        # step = max(step, 1)
+        # step = min(step, max_step)
+        step = max_step
         for _ in range(n):
-            indexes_to_change = random.choices(range(3), k=1)
+            indexes_to_change = random.choices(range(3), k=2)
             for idx in indexes_to_change:
                 color[idx] += step
                 color[idx] %= 256
