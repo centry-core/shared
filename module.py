@@ -75,12 +75,13 @@ class Module(module.ModuleModel):
         self.mongo.db = self.mongo.client[self.mongo.db_name]
         self.descriptor.register_tool("mongo", self.mongo)
 
-        from .tools.minio_client import MinioClient
+        from .tools.minio_client import MinioClient, MinioClientAdmin
         self.descriptor.register_tool('MinioClient', MinioClient)
+        self.descriptor.register_tool('MinioClientAdmin', MinioClientAdmin)
 
-        from .tools import vault_tools
-        self.descriptor.register_tool('vault_tools', vault_tools)
-        vault_tools.init_vault()  # won't do anything if vault is not available
+        from .tools.vault_tools import VaultClient
+        self.descriptor.register_tool('VaultClient', VaultClient)
+        VaultClient.init_vault()  # won't do anything if vault is not available
 
         from .tools import data_tools
         self.descriptor.register_tool('data_tools', data_tools)

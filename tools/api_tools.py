@@ -13,14 +13,15 @@
 #     limitations under the License.
 import datetime
 import operator
+from abc import ABC, abstractmethod
 from json import loads
 
 from pylon.core.tools import log
 from sqlalchemy import and_
-from flask_restful import Api, Resource, reqparse
+from flask_restful import Api, Resource, reqparse, Resource, abort
 # from werkzeug.exceptions import Forbidden
 
-from .minio_client import MinioClient
+from .minio_client import MinioClient, MinioClientAdmin
 from .rpc_tools import RpcMixin
 
 
@@ -92,23 +93,15 @@ def get(project_id: int, args: dict, data_model, additional_filter: dict = None)
     return total, res
 
 
-def upload_file(bucket, f, project, create_if_not_exists=True):
+def upload_file_base(bucket: str, f, client, create_if_not_exists: bool = True):
     name = f.filename
     content = f.read()
     f.seek(0, 2)
-    file_size = f.tell()
+    # file_size = f.tell()
     try:
         f.remove()
     except:
         pass
-    # from flask import current_app
-    # storage_space_quota = current_app.config["CONTEXT"].rpc_manager.call.project_get_storage_space_quota(
-    #     project_id=project.id
-    # )
-    # statistic = current_app.config["CONTEXT"].rpc_manager.call.project_statistics(project_id=project.id)
-    # if storage_space_quota != -1 and statistic["storage_space"] + file_size > storage_space_quota * 1000000:
-    #     raise Forbidden(description="The storage space limit allowed in the project has been exceeded")
-    client = MinioClient(project=project)
     if create_if_not_exists:
         if bucket not in client.list_bucket():
             bucket_type = 'system' if bucket in ('tasks', 'tests') else 'local'
@@ -116,6 +109,74 @@ def upload_file(bucket, f, project, create_if_not_exists=True):
     client.upload_file(bucket, content, name)
 
 
+def upload_file(bucket, f, project, create_if_not_exists=True):
+    client = MinioClient(project=project)
+    upload_file_base(bucket, f, client, create_if_not_exists)
+
+
+def upload_file_admin(bucket: str, f, create_if_not_exists: bool = True):
+    client = MinioClientAdmin()
+    upload_file_base(bucket, f, client, create_if_not_exists)
+
+
 def format_date(date_object: datetime.datetime) -> str:
     date_format = '%d.%m.%Y %H:%M'
     return date_object.strftime(date_format)
+
+
+class APIBase(Resource):
+    mode_handlers = dict()
+    url_params = list()
+
+    def proxy_method(self, method: str, mode: str = 'default', **kwargs):
+        log.info('Calling proxy method: [%s] mode: [%s] | %s', method, mode, kwargs)
+        log.info('Proxy: [%s] ', method, mode, kwargs)
+        try:
+            return getattr(self.mode_handlers[mode](self), method)(**kwargs)
+        except KeyError:
+            abort(404)
+
+    def __init__(self, module):
+        self.module = module
+        # if we have mode handlers then check if url params accept mode
+        log.info('APIBase INIT %s | %s', self.mode_handlers, self.url_params)
+        # if self.mode_handlers.keys():
+        #     unaware_url_patterns = lambda: filter(lambda i: not i.startswith('<string:mode>'), self.url_params)
+        #     mode_aware_patterns = list(map(lambda i: f'<string:mode>/{i}', unaware_url_patterns()))
+        #     self.url_params = [*list(unaware_url_patterns()), *list(mode_aware_patterns)]
+        # log.info('APIBase after check %s | %s', self.mode_handlers, self.url_params)
+
+    def get(self, **kwargs):
+        return self.proxy_method('get', **kwargs)
+
+    def post(self, **kwargs):
+        return self.proxy_method('post', **kwargs)
+
+    def put(self, **kwargs):
+        return self.proxy_method('put', **kwargs)
+
+    def delete(self, **kwargs):
+        return self.proxy_method('delete', **kwargs)
+
+    def patch(self, **kwargs):
+        return self.proxy_method('patch', **kwargs)
+
+
+class APIModeHandler:
+    def __init__(self, api: Resource):
+        self._api = api
+
+    def __getattr__(self, item):
+        try:
+            return self.__dict__[item]
+        except KeyError:
+            if item in ['get', 'post', 'put', 'delete', 'head', 'options', 'patch']:
+                abort(404)
+            return getattr(self._api, item)
+
+
+def build_api_url(
+        plugin: str, file_name: str, mode: str = 'default',
+        api_version: int = 1, trailing_slash: bool = False
+):
+    return f"/api/v{api_version}/{plugin}/{file_name}/{mode}{'/' if trailing_slash else ''}"

@@ -1,4 +1,5 @@
 import logging
+from abc import abstractmethod, ABC
 from json import loads
 from typing import Optional
 
@@ -10,20 +11,15 @@ from .constants import MINIO_ACCESS, MINIO_ENDPOINT, MINIO_SECRET, MINIO_REGION
 from .rpc_tools import RpcMixin
 
 
-class MinioClient:
+class MinioClientABC(ABC):
     PROJECT_SECRET_KEY: str = "minio_aws_access"
 
-    @classmethod
-    def from_project_id(cls, project_id: int, logger: Optional[logging.Logger] = None, rpc_manager=None):
-        if not rpc_manager:
-            rpc_manager = RpcMixin().rpc
-        project = rpc_manager.call.project_get_or_404(project_id=project_id)
-        return cls(project, logger)
-
-    def __init__(self, project, logger: Optional[logging.Logger] = None):
+    def __init__(self,
+                 aws_access_key_id: str = MINIO_ACCESS,
+                 aws_secret_access_key: str = MINIO_SECRET,
+                 logger: Optional[logging.Logger] = None
+                 ):
         self._logger = logger or logging.getLogger(self.__class__.__name__.lower())
-        self.project = project
-        aws_access_key_id, aws_secret_access_key = self.extract_access_data()
         self.s3_client = boto3.client(
             "s3", endpoint_url=MINIO_ENDPOINT,
             aws_access_key_id=aws_access_key_id,
@@ -32,28 +28,21 @@ class MinioClient:
             region_name=MINIO_REGION
         )
 
-    def extract_access_data(self) -> tuple:
-        if self.project and self.PROJECT_SECRET_KEY in (self.project.secrets_json or {}):
-            aws_access_json = self.project.secrets_json[self.PROJECT_SECRET_KEY]
-            aws_access_key_id = aws_access_json.get("aws_access_key_id")
-            aws_secret_access_key = aws_access_json.get("aws_secret_access_key")
-            return aws_access_key_id, aws_secret_access_key
-        return MINIO_ACCESS, MINIO_SECRET
+    @property
+    @abstractmethod
+    def bucket_prefix(self) -> str:
+        raise NotImplementedError
 
     def format_bucket_name(self, bucket: str) -> str:
-        prefix = f"p--{self.project.id}."
-        # if bucket == f"{prefix}{bucket}":
-        #     return bucket.replace(prefix, "", 1)
-        if bucket.startswith(prefix):
+        if bucket.startswith(self.bucket_prefix):
             return bucket
-        return f"{prefix}{bucket}"
+        return f"{self.bucket_prefix}{bucket}"
 
     def list_bucket(self) -> list:
-        prefix = f"p--{self.project.id}."
         return [
-            each["Name"].replace(prefix, "", 1)
+            each["Name"].replace(self.bucket_prefix, "", 1)
             for each in self.s3_client.list_buckets().get("Buckets", {})
-            if each["Name"].startswith(prefix)
+            if each["Name"].startswith(self.bucket_prefix)
         ]
 
     def create_bucket(self, bucket: str, bucket_type=None) -> dict:
@@ -100,7 +89,7 @@ class MinioClient:
             continuation_token = response.get("NextContinuationToken")
         return files
 
-    def upload_file(self, bucket: str, file_obj, file_name: str):
+    def upload_file(self, bucket: str, file_obj: bytes, file_name: str):
         return self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
 
     def download_file(self, bucket: str, file_name: str):
@@ -177,18 +166,18 @@ class MinioClient:
     def select_object_content(self, bucket: str, file_name: str, expression_addon: str = '') -> list:
         try:
             response = self.s3_client.select_object_content(
-                        Bucket=bucket,
-                        Key=file_name,
-                        ExpressionType='SQL',
-                        Expression=f"select * from s3object s{expression_addon}",
-                        InputSerialization={
-                            'CSV': {
-                                "FileHeaderInfo": "USE",
-                            },
-                            'CompressionType': 'GZIP',
-                        },
-                        OutputSerialization={'JSON': {}},
-                    )
+                Bucket=bucket,
+                Key=file_name,
+                ExpressionType='SQL',
+                Expression=f"select * from s3object s{expression_addon}",
+                InputSerialization={
+                    'CSV': {
+                        "FileHeaderInfo": "USE",
+                    },
+                    'CompressionType': 'GZIP',
+                },
+                OutputSerialization={'JSON': {}},
+            )
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchKey':
                 log.error(f'Cannot find file "{file_name}" in bucket "{bucket}"')
@@ -215,3 +204,35 @@ class MinioClient:
             if obj['Key'] == file_name:
                 return True
         return False
+
+
+class MinioClientAdmin(MinioClientABC):
+    @property
+    def bucket_prefix(self) -> str:
+        return 'p--administration.'
+
+
+class MinioClient(MinioClientABC):
+    @classmethod
+    def from_project_id(cls, project_id: int, logger: Optional[logging.Logger] = None, rpc_manager=None):
+        if not rpc_manager:
+            rpc_manager = RpcMixin().rpc
+        project = rpc_manager.call.project_get_or_404(project_id=project_id)
+        return cls(project, logger)
+
+    def __init__(self, project, logger: Optional[logging.Logger] = None):
+        self.project = project
+        aws_access_key_id, aws_secret_access_key = self.extract_access_data()
+        super().__init__(aws_access_key_id, aws_secret_access_key, logger)
+
+    def extract_access_data(self) -> tuple:
+        if self.project and self.PROJECT_SECRET_KEY in (self.project.secrets_json or {}):
+            aws_access_json = self.project.secrets_json[self.PROJECT_SECRET_KEY]
+            aws_access_key_id = aws_access_json.get("aws_access_key_id")
+            aws_secret_access_key = aws_access_json.get("aws_secret_access_key")
+            return aws_access_key_id, aws_secret_access_key
+        return MINIO_ACCESS, MINIO_SECRET
+
+    @property
+    def bucket_prefix(self) -> str:
+        return f'p--{self.project.id}.'
