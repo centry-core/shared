@@ -132,7 +132,7 @@ class APIBase(Resource):
         log.info('Calling proxy method: [%s] mode: [%s] | %s', method, mode, kwargs)
         log.info('Proxy: [%s] ', method, mode, kwargs)
         try:
-            return getattr(self.mode_handlers[mode](self), method)(**kwargs)
+            return getattr(self.mode_handlers[mode](self, mode), method)(**kwargs)
         except KeyError:
             abort(404)
 
@@ -163,8 +163,9 @@ class APIBase(Resource):
 
 
 class APIModeHandler:
-    def __init__(self, api: Resource):
+    def __init__(self, api: Resource, mode: str = 'default'):
         self._api = api
+        self.mode = mode
 
     def __getattr__(self, item):
         try:
