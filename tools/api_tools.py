@@ -14,7 +14,9 @@
 import datetime
 import operator
 from abc import ABC, abstractmethod
+from functools import reduce
 from json import loads
+from typing import Union
 
 from pylon.core.tools import log
 from sqlalchemy import and_
@@ -25,51 +27,44 @@ from .minio_client import MinioClient, MinioClientAdmin
 from .rpc_tools import RpcMixin
 
 
-def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    return False
+# def str2bool(v):
+#     if v.lower() in ('yes', 'true', 't', 'y', '1'):
+#         return True
+#     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+#         return False
+#     return False
 
 
-def build_req_parser(rules: tuple, location=("json", "values")) -> reqparse.RequestParser:
-    request_parser = reqparse.RequestParser()
-    for rule in rules:
-        if isinstance(rule, dict):
-            kwargs = rule.copy()
-            name = kwargs["name"]
-            del kwargs["name"]
-            if "location" not in kwargs:
-                # Use global location unless it"s specified by the rule.
-                kwargs["location"] = location
-            request_parser.add_argument(name, **kwargs)
-
-        elif isinstance(rule, (list, tuple)):
-            name, _type, required, default = rule
-            kwargs = {
-                "type": _type,
-                "location": location,
-                "required": required
-            }
-            if default is not None:
-                kwargs["default"] = default
-            request_parser.add_argument(name, **kwargs)
-
-    return request_parser
-
-
-def add_resource_to_api(api: Api, resource: Resource, *urls, **kwargs) -> None:
-    # This /api/v1 thing is made here to be able to register auth endpoints for local development
-    urls = (*(f"/api/v1{url}" for url in urls), *(f"/api/v1{url}/" for url in urls))
-    api.add_resource(resource, *urls, **kwargs)
-
-
-def _calcualte_limit(limit, total):
-    return total if limit == 'All' or limit == 0 else limit
+# def build_req_parser(rules: tuple, location=("json", "values")) -> reqparse.RequestParser:
+#     request_parser = reqparse.RequestParser()
+#     for rule in rules:
+#         if isinstance(rule, dict):
+#             kwargs = rule.copy()
+#             name = kwargs["name"]
+#             del kwargs["name"]
+#             if "location" not in kwargs:
+#                 # Use global location unless it"s specified by the rule.
+#                 kwargs["location"] = location
+#             request_parser.add_argument(name, **kwargs)
+#
+#         elif isinstance(rule, (list, tuple)):
+#             name, _type, required, default = rule
+#             kwargs = {
+#                 "type": _type,
+#                 "location": location,
+#                 "required": required
+#             }
+#             if default is not None:
+#                 kwargs["default"] = default
+#             request_parser.add_argument(name, **kwargs)
+#
+#     return request_parser
 
 
 def get(project_id: int, args: dict, data_model, additional_filter: dict = None):
+    def _calculate_limit(limit: Union[str, int], total: int):
+        return total if limit == 'All' or limit == 0 else limit
+
     rpc = RpcMixin().rpc
     project = rpc.call.project_get_or_404(project_id=project_id)
     limit_ = args.get("limit")
@@ -89,7 +84,7 @@ def get(project_id: int, args: dict, data_model, additional_filter: dict = None)
     filter_ = and_(*tuple(filter_))
     total = data_model.query.order_by(sort_rule).filter(filter_).count()
     res = data_model.query.filter(filter_).order_by(sort_rule).limit(
-        _calcualte_limit(limit_, total)).offset(offset_).all()
+        _calculate_limit(limit_, total)).offset(offset_).all()
     return total, res
 
 
@@ -109,19 +104,14 @@ def upload_file_base(bucket: str, f, client, create_if_not_exists: bool = True):
     client.upload_file(bucket, content, name)
 
 
-def upload_file(bucket, f, project, create_if_not_exists=True):
+def upload_file(bucket, f, project, create_if_not_exists=True, **kwargs):
     client = MinioClient(project=project)
     upload_file_base(bucket, f, client, create_if_not_exists)
 
 
-def upload_file_admin(bucket: str, f, create_if_not_exists: bool = True):
+def upload_file_admin(bucket: str, f, create_if_not_exists: bool = True, **kwargs):
     client = MinioClientAdmin()
     upload_file_base(bucket, f, client, create_if_not_exists)
-
-
-def format_date(date_object: datetime.datetime) -> str:
-    date_format = '%d.%m.%Y %H:%M'
-    return date_object.strftime(date_format)
 
 
 class APIBase(Resource):
@@ -129,8 +119,10 @@ class APIBase(Resource):
     url_params = list()
 
     def proxy_method(self, method: str, mode: str = 'default', **kwargs):
-        log.info('Calling proxy method: [%s] mode: [%s] | %s', method, mode, kwargs)
-        log.info('Proxy: [%s] ', method, mode, kwargs)
+        log.info(
+            'Calling proxy method: [%s] mode: [%s] | %s',
+            method, mode, reduce(lambda k, v: f'{str(k)}: {str(v)}', kwargs.items())
+        )
         try:
             return getattr(self.mode_handlers[mode](self, mode), method)(**kwargs)
         except KeyError:
@@ -138,13 +130,7 @@ class APIBase(Resource):
 
     def __init__(self, module):
         self.module = module
-        # if we have mode handlers then check if url params accept mode
         log.info('APIBase INIT %s | %s', self.mode_handlers, self.url_params)
-        # if self.mode_handlers.keys():
-        #     unaware_url_patterns = lambda: filter(lambda i: not i.startswith('<string:mode>'), self.url_params)
-        #     mode_aware_patterns = list(map(lambda i: f'<string:mode>/{i}', unaware_url_patterns()))
-        #     self.url_params = [*list(unaware_url_patterns()), *list(mode_aware_patterns)]
-        # log.info('APIBase after check %s | %s', self.mode_handlers, self.url_params)
 
     def get(self, **kwargs):
         return self.proxy_method('get', **kwargs)
