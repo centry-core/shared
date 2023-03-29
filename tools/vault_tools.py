@@ -85,7 +85,7 @@ class VaultClient:
             """ Get "root" Vault client instance """
             # Get Vault client
             client = hvac.Client(url=c.VAULT_URL)
-            VaultClient.unseal(client)
+            VaultClient._unseal(client)
             # Get root token from DB
             vault = Vault.query.get(c.VAULT_DB_PK)
             # Add auth info to client
@@ -119,7 +119,7 @@ class VaultClient:
                 vault = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
                 vault.insert()
             # Unseal if needed
-            VaultClient.unseal(client)
+            VaultClient._unseal(client)
             # Enable AppRole auth method if needed
             client = VaultClient().client
             auth_methods = client.sys.list_auth_methods()
@@ -132,7 +132,7 @@ class VaultClient:
             return 0
 
     @staticmethod
-    def unseal(client: hvac.Client):
+    def _unseal(client: hvac.Client):
         if client.sys.is_sealed():
             try:
                 vault = Vault.query.get(c.VAULT_DB_PK)
@@ -140,7 +140,7 @@ class VaultClient:
             except AttributeError:
                 VaultClient.init_vault()
 
-    def add_hidden_kv(self) -> None:
+    def __add_hidden_kv(self) -> None:
         # Create hidden secrets KV
         try:
             self.client.sys.enable_secrets_engine(
@@ -156,7 +156,7 @@ class VaultClient:
         except hvac.exceptions.InvalidRequest:
             pass
 
-    def set_hidden_kv_permissions(self) -> None:
+    def __set_hidden_kv_permissions(self) -> None:
         policy = """
             # Login with AppRole
             path "auth/approle/login" {
@@ -185,7 +185,7 @@ class VaultClient:
         """ Create project approle, policy and KV """
         log.info('Initializing Vault space for [%s]', self.vault_name)
         # Create policy for project
-        self.set_hidden_kv_permissions()
+        self.__set_hidden_kv_permissions()
         # Create secrets KV
         self.client.sys.enable_secrets_engine(
             backend_type="kv",
@@ -198,7 +198,7 @@ class VaultClient:
             secret=dict(),
         )
         # Create hidden secrets KV
-        self.add_hidden_kv()
+        self.__add_hidden_kv()
         # Create AppRole
         approle_name = f"role-for-{self.vault_name}"
         requests.post(
@@ -249,7 +249,7 @@ class VaultClient:
         )
         self._cache['secrets'] = secrets
 
-    def set_project_hidden_secrets(self, secrets: dict):
+    def set_project_hidden_secrets(self, secrets: dict) -> None:
         """ Set project hidden secrets """
         if self.is_administration:
             raise RuntimeError('Administration mode does not allow hidden secrets')
@@ -262,10 +262,10 @@ class VaultClient:
             self._cache['hidden_secrets'] = secrets
         except (hvac.exceptions.Forbidden, hvac.exceptions.InvalidPath):
             log.error("Exception Forbidden in set_project_hidden_secret")
-            self.set_hidden_kv_permissions()
+            self.__set_hidden_kv_permissions()
             self.set_project_secrets(secrets)
 
-    def get_vault_data(self, mount_point: str) -> dict:
+    def _get_vault_data(self, mount_point: str) -> dict:
         return self.client.secrets.kv.v2.read_secret_version(
             path="project-secrets",
             mount_point=mount_point,
@@ -274,7 +274,7 @@ class VaultClient:
     def get_project_secrets(self) -> dict:
         """ Get project secrets """
         if not self._cache['secrets']:
-            self._cache['secrets'] = self.get_vault_data(f"kv-for-{self.vault_name}")
+            self._cache['secrets'] = self._get_vault_data(f"kv-for-{self.vault_name}")
         return self._cache['secrets']
 
     def get_project_hidden_secrets(self) -> dict:
@@ -283,12 +283,13 @@ class VaultClient:
             return {}
         try:
             if not self._cache['hidden_secrets']:
-                self._cache['hidden_secrets'] = self.get_vault_data(f"kv-for-hidden-{self.vault_name}")
+                self._cache['hidden_secrets'] = self._get_vault_data(f"kv-for-hidden-{self.vault_name}")
             return self._cache['hidden_secrets']
         except (hvac.exceptions.Forbidden, hvac.exceptions.InvalidPath):
             log.error("Exception Forbidden in get_project_hidden_secret")
-            self.set_hidden_kv_permissions()
+            self.__set_hidden_kv_permissions()
             return {}
+
 
     def get_all_secrets(self) -> dict:
         if self.is_administration:
@@ -300,12 +301,12 @@ class VaultClient:
             self._cache['all_secrets'] = all_secrets
         return self._cache['all_secrets']
 
-    def unsecret_list(self, secrets: dict, array: list) -> list:
+    def _unsecret_list(self, array: list, secrets: dict) -> list:
         for i in range(len(array)):
             array[i] = self.unsecret(i, secrets)
         return array
 
-    def unsecret_json(self, secrets: dict, json: dict) -> dict:
+    def _unsecret_json(self, json: dict, secrets: dict) -> dict:
         for key in json.keys():
             json[key] = self.unsecret(json[key], secrets)
         return json
@@ -322,8 +323,8 @@ class VaultClient:
             template = Template(value)
             return template.render(secret=secrets)
         elif isinstance(value, list):
-            return self.unsecret_list(secrets, value)
+            return self._unsecret_list(value, secrets)
         elif isinstance(value, dict):
-            return self.unsecret_json(secrets, value)
+            return self._unsecret_json(value, secrets)
         else:
             return value
