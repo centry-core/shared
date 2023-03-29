@@ -54,6 +54,8 @@ MAX_DOTS_ON_CHART = 100
 VAULT_URL = environ.get('VAULT_URL', 'http://127.0.0.1:8200' if LOCAL_DEV else 'http://carrier-vault:8200')
 VAULT_DB_PK = 1
 VAULT_ADMINISTRATION_NAME = 'administration'
+ADMINISTRATION_MODE = 'administration'
+DEFAULT_MODE = 'default'
 GRID_ROUTER_URL = environ.get("GRID_ROUTER_URL", f"{EXTERNAL_LOKI_HOST}:4444/quota")
 
 
