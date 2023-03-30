@@ -252,7 +252,7 @@ class VaultClient:
     def set_project_hidden_secrets(self, secrets: dict) -> None:
         """ Set project hidden secrets """
         if self.is_administration:
-            raise RuntimeError('Administration mode does not allow hidden secrets')
+            self.set_project_secrets(secrets)
         try:
             self.client.secrets.kv.v2.create_or_update_secret(
                 path="project-secrets",
@@ -280,7 +280,7 @@ class VaultClient:
     def get_project_hidden_secrets(self) -> dict:
         """ Get project hidden secrets """
         if self.is_administration:
-            return {}
+            return self.get_project_secrets()
         try:
             if not self._cache['hidden_secrets']:
                 self._cache['hidden_secrets'] = self._get_vault_data(f"kv-for-hidden-{self.vault_name}")
