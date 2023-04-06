@@ -1,29 +1,60 @@
 from queue import Empty
-
-from flask_restful import Resource
 from pylon.core.tools import log
+from ...tools.api_tools import APIBase, APIModeHandler
 
 
-class API(Resource):
+class ProjectApi(APIModeHandler):
+    def get(self, project_id: int):
+        resp = {
+            'public_regions': [],
+            'project_regions': [],
+            'cloud_regions': []
+        }
+        try:
+            resp['public_regions'] = self.module.context.rpc_manager.timeout(
+                3
+            ).get_rabbit_queues("carrier", True)
+        except Empty:
+            log.warning('Cannot get %s for project [%s]', 'public_regions', project_id)
+        try:
+            resp['project_regions'] = self.module.context.rpc_manager.timeout(
+                3
+            ).get_rabbit_queues(f"project_{project_id}_vhost")
+        except Empty:
+            log.warning('Cannot get %s for project [%s]', 'project_regions', project_id)
+        try:
+            resp['cloud_regions'] = self.module.context.rpc_manager.timeout(
+                3
+            ).integrations_get_cloud_integrations(
+                project_id
+            )
+        except Empty:
+            log.warning('Cannot get %s for project [%s]', 'cloud_regions', project_id)
+            # return resp, 400
+        return resp, 200
+
+
+class AdminApi(APIModeHandler):
+    def get(self, **kwargs):
+        try:
+            public_regions = self.module.context.rpc_manager.timeout(3).get_rabbit_queues("carrier", True)
+        except Empty:
+            log.warning('Cannot get %s for administration', 'public_regions')
+            public_regions = []
+        return {
+            'public_regions': public_regions,
+            'project_regions': [],
+            'cloud_regions': []
+        }, 200
+
+
+class API(APIBase):
     url_params = [
         '<int:project_id>',
+        '<string:mode>/<string:project_id>',
     ]
 
-    def __init__(self, module):
-        self.module = module
-
-    def get(self, project_id: int):
-        try:
-            cloud_regions = self.module.context.rpc_manager.timeout(5).integrations_get_cloud_integrations(
-                project_id)
-            public_regions = self.module.context.rpc_manager.timeout(5).get_rabbit_queues("carrier")
-            project_regions = self.module.context.rpc_manager.timeout(5).get_rabbit_queues(
-                f"project_{project_id}_vhost")
-        except Empty:
-            log.warning('Cannot fetch project_id via RPC')
-            return {'public_regions': [], 'project_regions': []}, 400
-        public_regions.remove("__internal")
-        return {'public_regions': public_regions,
-                'project_regions': project_regions,
-                'cloud_regions': cloud_regions
-                }, 200
+    mode_handlers = {
+        'default': ProjectApi,
+        'administration': AdminApi,
+    }

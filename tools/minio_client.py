@@ -92,7 +92,7 @@ class MinioClientABC(ABC):
     def upload_file(self, bucket: str, file_obj: bytes, file_name: str):
         return self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
 
-    def download_file(self, bucket: str, file_name: str):
+    def download_file(self, bucket: str, file_name: str) -> bytes:
         return self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)["Body"].read()
 
     def remove_file(self, bucket: str, file_name: str):

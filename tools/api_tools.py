@@ -16,7 +16,7 @@ import operator
 from abc import ABC, abstractmethod
 from functools import reduce
 from json import loads
-from typing import Union
+from typing import Union, Optional, Callable, Tuple, Any
 
 from pylon.core.tools import log
 from sqlalchemy import and_
@@ -61,57 +61,84 @@ from .rpc_tools import RpcMixin
 #     return request_parser
 
 
-def get(project_id: int, args: dict, data_model, additional_filter: dict = None):
+def get(project_id: Optional[int], args: dict, data_model,
+        additional_filters: Optional[list] = None,
+        rpc_manager: Optional[Callable] = None,
+        mode: str = 'default'
+        ) -> Tuple[int, list]:
     def _calculate_limit(limit: Union[str, int], total: int):
         return total if limit == 'All' or limit == 0 else limit
 
-    rpc = RpcMixin().rpc
-    project = rpc.call.project_get_or_404(project_id=project_id)
     limit_ = args.get("limit")
     offset_ = args.get("offset")
     if args.get("sort"):
         sort_rule = getattr(getattr(data_model, args["sort"]), args["order"])()
     else:
         sort_rule = data_model.id.desc()
-    filter_ = list()
-    filter_.append(operator.eq(data_model.project_id, project.id))
-    if additional_filter:
-        for key, value in additional_filter.items():
-            filter_.append(operator.eq(getattr(data_model, key), value))
+
+    filter_ = []
+    try:
+        filter_.append(operator.eq(data_model.mode, mode))
+    except AttributeError:
+        ...
+
+    if mode == 'default':
+        if not rpc_manager:
+            rpc_manager = RpcMixin().rpc
+        project = rpc_manager.call.project_get_or_404(project_id=project_id)
+        filter_.append(operator.eq(data_model.project_id, project.id))
+
+    if additional_filters:
+        filter_.extend(additional_filters)
+        # for key, value in additional_filter.items():
+        #     filter_.append(operator.eq(getattr(data_model, key), value))
+
     if args.get('filter'):
         for key, value in loads(args.get('filter')).items():
             filter_.append(operator.eq(getattr(data_model, key), value))
-    filter_ = and_(*tuple(filter_))
+
+    filter_ = and_(*filter_)
     total = data_model.query.order_by(sort_rule).filter(filter_).count()
     res = data_model.query.filter(filter_).order_by(sort_rule).limit(
         _calculate_limit(limit_, total)).offset(offset_).all()
+
     return total, res
 
 
-def upload_file_base(bucket: str, f, client, create_if_not_exists: bool = True):
-    name = f.filename
-    content = f.read()
-    f.seek(0, 2)
-    # file_size = f.tell()
-    try:
-        f.remove()
-    except:
-        pass
+def upload_file_base(bucket: str, data: bytes, file_name: str, client, create_if_not_exists: bool = True) -> None:
     if create_if_not_exists:
         if bucket not in client.list_bucket():
             bucket_type = 'system' if bucket in ('tasks', 'tests') else 'local'
             client.create_bucket(bucket=bucket, bucket_type=bucket_type)
-    client.upload_file(bucket, content, name)
+    client.upload_file(bucket, data, file_name)
 
 
-def upload_file(bucket, f, project, create_if_not_exists=True, **kwargs):
-    client = MinioClient(project=project)
-    upload_file_base(bucket, f, client, create_if_not_exists)
+def upload_file(bucket: str, f, project, create_if_not_exists: bool = True, **kwargs) -> None:
+    upload_file_base(
+        bucket=bucket,
+        data=f.read(),
+        file_name=f.filename,
+        client=MinioClient(project=project),
+        create_if_not_exists=create_if_not_exists
+    )
+    try:
+        f.remove()
+    except:
+        pass
 
 
-def upload_file_admin(bucket: str, f, create_if_not_exists: bool = True, **kwargs):
-    client = MinioClientAdmin()
-    upload_file_base(bucket, f, client, create_if_not_exists)
+def upload_file_admin(bucket: str, f, create_if_not_exists: bool = True, **kwargs) -> None:
+    upload_file_base(
+        bucket=bucket,
+        data=f.read(),
+        file_name=f.filename,
+        client=MinioClientAdmin(),
+        create_if_not_exists=create_if_not_exists
+    )
+    try:
+        f.remove()
+    except:
+        pass
 
 
 class APIBase(Resource):

@@ -44,11 +44,11 @@ class VaultAuth(BaseModel):
 
 class VaultClient:
     @classmethod
-    def from_project(cls, project: Union[int, dict, Any]):
+    def from_project(cls, project: Union[int, str, dict, 'Project']):
         assert project is not None
         auth = None
         vault_name = None
-        if isinstance(project, int):
+        if isinstance(project, int) or isinstance(project, str):
             from .rpc_tools import RpcMixin
             project = RpcMixin().rpc.call.project_get_or_404(project_id=project)
             auth = project.secrets_json
@@ -240,8 +240,8 @@ class VaultClient:
             name=f"policy-for-{self.vault_name}",
         )
 
-    def set_project_secrets(self, secrets: dict) -> None:
-        """ Set project secrets """
+    def set_secrets(self, secrets: dict) -> None:
+        """ Set secrets """
         self.client.secrets.kv.v2.create_or_update_secret(
             path="project-secrets",
             mount_point=f"kv-for-{self.vault_name}",
@@ -249,8 +249,12 @@ class VaultClient:
         )
         self._cache['secrets'] = secrets
 
-    def set_project_hidden_secrets(self, secrets: dict) -> None:
-        """ Set project hidden secrets """
+    def set_project_secrets(self, secrets: dict) -> None:
+        """ Here for backward compatibility """
+        return self.set_secrets(secrets)
+
+    def set_hidden_secrets(self, secrets: dict) -> None:
+        """ Set hidden secrets """
         if self.is_administration:
             self.set_project_secrets(secrets)
         try:
@@ -265,22 +269,30 @@ class VaultClient:
             self.__set_hidden_kv_permissions()
             self.set_project_secrets(secrets)
 
+    def set_project_hidden_secrets(self, secrets: dict) -> None:
+        """ Here for backward compatibility """
+        return self.set_hidden_secrets(secrets)
+
     def _get_vault_data(self, mount_point: str) -> dict:
         return self.client.secrets.kv.v2.read_secret_version(
             path="project-secrets",
             mount_point=mount_point,
         ).get("data", {}).get("data", {})
 
-    def get_project_secrets(self) -> dict:
-        """ Get project secrets """
+    def get_secrets(self) -> dict:
+        """ Get secrets """
         if not self._cache['secrets']:
             self._cache['secrets'] = self._get_vault_data(f"kv-for-{self.vault_name}")
         return self._cache['secrets']
 
-    def get_project_hidden_secrets(self) -> dict:
+    def get_project_secrets(self) -> dict:
+        """ Here for backward compatibility """
+        return self.get_secrets()
+
+    def get_hidden_secrets(self) -> dict:
         """ Get project hidden secrets """
         if self.is_administration:
-            return self.get_project_secrets()
+            return self.get_secrets()
         try:
             if not self._cache['hidden_secrets']:
                 self._cache['hidden_secrets'] = self._get_vault_data(f"kv-for-hidden-{self.vault_name}")
@@ -290,6 +302,9 @@ class VaultClient:
             self.__set_hidden_kv_permissions()
             return {}
 
+    def get_project_hidden_secrets(self) -> dict:
+        """ Here for backward compatibility """
+        return self.get_hidden_secrets()
 
     def get_all_secrets(self) -> dict:
         if self.is_administration:
@@ -303,7 +318,7 @@ class VaultClient:
 
     def _unsecret_list(self, array: list, secrets: dict) -> list:
         for i in range(len(array)):
-            array[i] = self.unsecret(i, secrets)
+            array[i] = self.unsecret(array[i], secrets)
         return array
 
     def _unsecret_json(self, json: dict, secrets: dict) -> dict:
@@ -314,11 +329,6 @@ class VaultClient:
     def unsecret(self, value: Any, secrets: Optional[dict] = None) -> Any:
         if not secrets:
             secrets = self.get_all_secrets()
-            # secrets = self.get_project_secrets()
-            # hidden_secrets = self.get_project_hidden_secrets()
-            # for key, _value in hidden_secrets.items():
-            #     if key not in list(secrets.keys()):
-            #         secrets[key] = _value
         if isinstance(value, str):
             template = Template(value)
             return template.render(secret=secrets)

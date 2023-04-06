@@ -1,20 +1,38 @@
+from io import BytesIO
+from typing import Optional
+
 from requests import get
 import os
 from uuid import uuid4
-import logging
 
 
-class File:
-    def __init__(self, url):
+class File(BytesIO):
+    def __init__(self, url: str, file_name: Optional[str] = None):
+        self._url = url
+        if file_name:
+            self.filename = file_name
+        else:
+            self.filename = url.split("/")[-1]
+        super().__init__()
+
+        r = get(self._url, allow_redirects=True)
+        self.write(r.content)
+        self.seek(0)
+
+
+class FileOld:
+    def __init__(self, url: str, file_name: Optional[str] = None):
         self.url = url
-        self.filename = url.split("/")[-1]
+        if file_name:
+            self.filename = file_name
+        else:
+            self.filename = url.split("/")[-1]
         self.path = ""
 
     def read(self):
         if not self.path:
-            self.path = os.path.join(os.environ.get("TASKS_UPLOAD_FOLDER", "/tmp/tasks"), str(uuid4()))
-            logging.info(self.path)
-            logging.info(self.url)
+            # self.path = os.path.join(os.environ.get("TASKS_UPLOAD_FOLDER", "/tmp/tasks"), str(uuid4()))
+            self.path = os.path.join(os.environ.get("TASKS_UPLOAD_FOLDER", "/tmp/tasks"), self.filename)
             r = get(self.url, allow_redirects=True)
             with open(self.path, 'wb') as f:
                 f.write(r.content)
