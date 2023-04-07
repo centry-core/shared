@@ -148,7 +148,7 @@ class APIBase(Resource):
     def proxy_method(self, method: str, mode: str = 'default', **kwargs):
         log.info(
             'Calling proxy method: [%s] mode: [%s] | %s',
-            method, mode, reduce(lambda k, v: f'{str(k)}: {str(v)}', kwargs.items())
+            method, mode, kwargs
         )
         try:
             return getattr(self.mode_handlers[mode](self, mode), method)(**kwargs)
