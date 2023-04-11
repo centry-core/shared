@@ -1,4 +1,4 @@
-#   Copyright 2019 getcarrier.io
+#   Copyright 2022 getcarrier.io
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 from os import environ
 from datetime import datetime
+from typing import Union
 from urllib.parse import urlparse
 
 LOCAL_DEV = True
@@ -40,9 +41,11 @@ _url = urlparse(APP_HOST)
 EXTERNAL_LOKI_HOST = f"http://{_url.netloc.split('@')[1]}" if "@" in APP_HOST else APP_HOST.replace("https://", "http://")
 INTERNAL_LOKI_HOST = "http://carrier-loki"
 APP_IP = urlparse(EXTERNAL_LOKI_HOST).netloc
-POST_PROCESSOR_PATH = "https://github.com/carrier-io/performance_post_processor/raw/master/package/post_processing.zip"
+# POST_PROCESSOR_PATH = "https://github.com/carrier-io/performance_post_processor/raw/master/package/post_processing.zip"
 CONTROL_TOWER_PATH = "https://github.com/carrier-io/control_tower/raw/master/package/control-tower.zip"
 EMAIL_NOTIFICATION_PATH = "https://github.com/carrier-io/performance_email_notification/raw/master/package/email_notifications.zip"
+# RABBIT_TASK_PATH = "https://github.com/carrier-io/rabbit_queue_checker/raw/main/package/rabbit_queue_checker.zip"
+RABBIT_TASK_PATH = 'https://drive.google.com/u/0/uc?id=1Sw6ucd_zRRC63g7Ik9B8gRqdqvAgHabU&export=download'
 MINIO_ENDPOINT = environ.get('MINIO_HOST', 'http://127.0.0.1:9000' if LOCAL_DEV else 'http://carrier-minio:9000')
 MINIO_ACCESS = environ.get('MINIO_ACCESS_KEY', 'admin')
 MINIO_SECRET = environ.get('MINIO_SECRET_KEY', 'password')
@@ -51,21 +54,15 @@ LOKI_HOST = environ.get('LOKI', f'{EXTERNAL_LOKI_HOST}:3100')
 MAX_DOTS_ON_CHART = 100
 VAULT_URL = environ.get('VAULT_URL', 'http://127.0.0.1:8200' if LOCAL_DEV else 'http://carrier-vault:8200')
 VAULT_DB_PK = 1
+ADMINISTRATION_MODE = 'administration'
+VAULT_ADMINISTRATION_NAME = ADMINISTRATION_MODE
+DEFAULT_MODE = 'default'
 GRID_ROUTER_URL = environ.get("GRID_ROUTER_URL", f"{EXTERNAL_LOKI_HOST}:4444/quota")
 
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def str_to_timestamp(str_ts):
-    timestamp = str_ts.replace("Z", "")
-    if "." not in timestamp:
-        timestamp += "."
-    timestamp += "".join(["0" for _ in range(26 - len(timestamp))])
-    timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f").timestamp()
-    return timestamp
 
 
 UNZIP_DOCKERFILE = """FROM kubeless/unzip:latest
