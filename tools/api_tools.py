@@ -113,12 +113,17 @@ def upload_file_base(bucket: str, data: bytes, file_name: str, client, create_if
     client.upload_file(bucket, data, file_name)
 
 
-def upload_file(bucket: str, f, project, create_if_not_exists: bool = True, **kwargs) -> None:
+def upload_file(bucket: str, f, project: Union[str, int, 'Project'], create_if_not_exists: bool = True, **kwargs) -> None:
+    if isinstance(project, (str, int)):
+        mc = MinioClient.from_project_id(project_id=project)
+    else:
+        mc = MinioClient(project=project)
+
     upload_file_base(
         bucket=bucket,
         data=f.read(),
         file_name=f.filename,
-        client=MinioClient(project=project),
+        client=mc,
         create_if_not_exists=create_if_not_exists
     )
     try:

@@ -57,6 +57,7 @@ class VaultClient:
             auth = project
             vault_name = project['id']
         elif project is not None:
+            log.warning('Init vault client from project %s %s', type(project), project)
             auth = project.secrets_json
             vault_name = project.id
         return cls(vault_auth=auth, vault_name=vault_name)
