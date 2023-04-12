@@ -44,6 +44,7 @@ APP_IP = urlparse(EXTERNAL_LOKI_HOST).netloc
 # POST_PROCESSOR_PATH = "https://github.com/carrier-io/performance_post_processor/raw/master/package/post_processing.zip"
 CONTROL_TOWER_PATH = "https://github.com/carrier-io/control_tower/raw/master/package/control-tower.zip"
 EMAIL_NOTIFICATION_PATH = "https://github.com/carrier-io/performance_email_notification/raw/master/package/email_notifications.zip"
+EMAIL_INVITATION_PATH = "https://github.com/carrier-io/performance_email_notification/raw/master/package/email_notifications.zip"
 # RABBIT_TASK_PATH = "https://github.com/carrier-io/rabbit_queue_checker/raw/main/package/rabbit_queue_checker.zip"
 RABBIT_TASK_PATH = 'https://drive.google.com/u/0/uc?id=1Sw6ucd_zRRC63g7Ik9B8gRqdqvAgHabU&export=download'
 MINIO_ENDPOINT = environ.get('MINIO_HOST', 'http://127.0.0.1:9000' if LOCAL_DEV else 'http://carrier-minio:9000')
