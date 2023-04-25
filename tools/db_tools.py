@@ -51,7 +51,8 @@ class AbstractBaseMixin:
                 result[column.name] = value
         return result
 
-    def commit(self, with_session: Optional = None) -> None:
+    @staticmethod
+    def commit() -> None:
         session.commit()
 
     def add(self, with_session: Optional = None) -> None:
