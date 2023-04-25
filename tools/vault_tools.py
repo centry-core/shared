@@ -317,17 +317,17 @@ class VaultClient:
             self._cache['all_secrets'] = all_secrets
         return self._cache['all_secrets']
 
-    def _unsecret_list(self, array: list, secrets: dict) -> list:
+    def _unsecret_list(self, array: list, secrets: dict, **kwargs) -> list:
         for i in range(len(array)):
-            array[i] = self.unsecret(array[i], secrets)
+            array[i] = self.unsecret(array[i], secrets, **kwargs)
         return array
 
-    def _unsecret_json(self, json: dict, secrets: dict) -> dict:
+    def _unsecret_json(self, json: dict, secrets: dict, **kwargs) -> dict:
         for key in json.keys():
-            json[key] = self.unsecret(json[key], secrets)
+            json[key] = self.unsecret(json[key], secrets, **kwargs)
         return json
 
-    def unsecret(self, value: Any, secrets: Optional[dict] = None) -> Any:
+    def unsecret(self, value: Any, secrets: Optional[dict] = None, **kwargs) -> Any:
         if not secrets:
             secrets = self.get_all_secrets()
         if isinstance(value, str):

@@ -19,6 +19,8 @@
 import json
 
 from datetime import datetime
+from typing import Optional
+
 from tools import config
 from pylon.core.tools import log
 
@@ -49,23 +51,22 @@ class AbstractBaseMixin:
                 result[column.name] = value
         return result
 
-    @staticmethod
-    def commit() -> None:
+    def commit(self, with_session: Optional = None) -> None:
         session.commit()
 
-    def add(self) -> None:
+    def add(self, with_session: Optional = None) -> None:
         session.add(self)
 
-    def insert(self) -> None:
+    def insert(self, with_session: Optional = None) -> None:
         self.add()
         self.commit()
 
-    def delete(self, commit: bool = True) -> None:
+    def delete(self, commit: bool = True, with_session: Optional = None) -> None:
         session.delete(self)
         if commit:
             self.commit()
 
-    def rollback(self):
+    def rollback(self, with_session: Optional = None):
         session.rollback()
 
     @property
