@@ -60,11 +60,13 @@ class VaultClient:
             log.warning('Init vault client from project %s %s', type(project), project)
             auth = project.secrets_json
             vault_name = project.id
-        return cls(vault_auth=auth, vault_name=vault_name)
+        return cls(vault_auth=auth, vault_name=vault_name, project_id=vault_name)
 
     def __init__(self,
                  vault_auth: Optional[dict] = None,
-                 vault_name: Union[int, str, None] = c.VAULT_ADMINISTRATION_NAME):
+                 vault_name: Union[int, str, None] = c.VAULT_ADMINISTRATION_NAME,
+                 project_id: Optional[int] = None
+                 ):
         self.auth = None
         if vault_auth:
             self.auth = VaultAuth.parse_obj(vault_auth)
@@ -75,6 +77,7 @@ class VaultClient:
             'hidden_secrets': None,
             'all_secrets': None
         }
+        self.project_id = project_id
 
     @property
     def is_administration(self):
