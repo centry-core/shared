@@ -13,6 +13,7 @@ from .rpc_tools import RpcMixin
 
 class MinioClientABC(ABC):
     PROJECT_SECRET_KEY: str = "minio_aws_access"
+    TASKS_BUCKET: str = "tasks"
 
     def __init__(self,
                  aws_access_key_id: str = MINIO_ACCESS,
@@ -139,14 +140,10 @@ class MinioClientABC(ABC):
 
     def get_file_size(self, bucket: str, filename: str) -> int:
         response = self.s3_client.list_objects_v2(Bucket=self.format_bucket_name(bucket)).get("Contents", {})
-
-        file_size = 0
-        for each in response:
-            if str(each["Key"]).lower() == str(filename).lower():
-                file_size += each["Size"]
-                break
-
-        return file_size
+        for i in response:
+            if str(i["Key"]).lower() == str(filename).lower():
+                return i["Size"]
+        return 0
 
     def get_bucket_tags(self, bucket: str) -> dict:
         try:
