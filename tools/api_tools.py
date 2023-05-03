@@ -11,71 +11,25 @@
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
-import datetime
 import operator
-from abc import ABC, abstractmethod
-from functools import reduce
 from json import loads
-from typing import Union, Optional, Callable, Tuple, Any
+from typing import Union, Optional, Callable, Tuple
 
 from pylon.core.tools import log
-from sqlalchemy import and_
-from flask_restful import Api, Resource, reqparse, Resource, abort
-# from werkzeug.exceptions import Forbidden
+from sqlalchemy import and_, SQLColumnExpression
+from flask_restful import Resource, abort
 
 from .minio_client import MinioClient, MinioClientAdmin
 from .rpc_tools import RpcMixin
+from .constants import DEFAULT_MODE
 
 
-# def str2bool(v):
-#     if v.lower() in ('yes', 'true', 't', 'y', '1'):
-#         return True
-#     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-#         return False
-#     return False
-
-
-# def build_req_parser(rules: tuple, location=("json", "values")) -> reqparse.RequestParser:
-#     request_parser = reqparse.RequestParser()
-#     for rule in rules:
-#         if isinstance(rule, dict):
-#             kwargs = rule.copy()
-#             name = kwargs["name"]
-#             del kwargs["name"]
-#             if "location" not in kwargs:
-#                 # Use global location unless it"s specified by the rule.
-#                 kwargs["location"] = location
-#             request_parser.add_argument(name, **kwargs)
-#
-#         elif isinstance(rule, (list, tuple)):
-#             name, _type, required, default = rule
-#             kwargs = {
-#                 "type": _type,
-#                 "location": location,
-#                 "required": required
-#             }
-#             if default is not None:
-#                 kwargs["default"] = default
-#             request_parser.add_argument(name, **kwargs)
-#
-#     return request_parser
-
-
-def get(project_id: Optional[int], args: dict, data_model,
+def prepare_filter(
+        project_id: Optional[int], args: dict, data_model,
         additional_filters: Optional[list] = None,
         rpc_manager: Optional[Callable] = None,
-        mode: str = 'default'
-        ) -> Tuple[int, list]:
-    def _calculate_limit(limit: Union[str, int], total: int):
-        return total if limit == 'All' or limit == 0 else limit
-
-    limit_ = args.get("limit")
-    offset_ = args.get("offset")
-    if args.get("sort"):
-        sort_rule = getattr(getattr(data_model, args["sort"]), args["order"])()
-    else:
-        sort_rule = data_model.id.desc()
-
+        mode: str = DEFAULT_MODE
+        ) -> SQLColumnExpression:
     filter_ = []
     try:
         filter_.append(operator.eq(data_model.mode, mode))
@@ -98,9 +52,40 @@ def get(project_id: Optional[int], args: dict, data_model,
             filter_.append(operator.eq(getattr(data_model, key), value))
 
     filter_ = and_(*filter_)
+    return filter_
+
+
+def get(project_id: Optional[int], args: dict, data_model,
+        additional_filters: Optional[list] = None,
+        rpc_manager: Optional[Callable] = None,
+        mode: str = 'default',
+        custom_filter: Optional[SQLColumnExpression] = None
+        ) -> Tuple[int, list]:
+    def _calculate_limit(limit: Union[str, int], total: int):
+        return total if limit == 'All' or limit == 0 else limit
+
+    limit_ = args.get("limit")
+    offset_ = args.get("offset")
+    if args.get("sort"):
+        sort_rule = getattr(getattr(data_model, args["sort"]), args["order"])()
+    else:
+        sort_rule = data_model.id.desc()
+
+    if custom_filter is None:
+        filter_ = prepare_filter(project_id, args, data_model, additional_filters, rpc_manager, mode)
+    else:
+        filter_ = custom_filter
+
     total = data_model.query.order_by(sort_rule).filter(filter_).count()
-    res = data_model.query.filter(filter_).order_by(sort_rule).limit(
-        _calculate_limit(limit_, total)).offset(offset_).all()
+    res = data_model.query.filter(
+        filter_
+    ).order_by(
+        sort_rule
+    ).limit(
+        _calculate_limit(limit_, total)
+    ).offset(
+        offset_
+    ).all()
 
     return total, res
 
