@@ -16,13 +16,12 @@
 #     limitations under the License.
 
 """ Vault tools """
-from typing import Optional, Any, Union
+from functools import wraps
+from typing import Optional, Any, Union, List, Tuple
 
-import hvac  # pylint: disable=E0401
-import requests
-from requests.exceptions import ConnectionError
-
-from pydantic import BaseModel
+import hvac  # actually comes from pylon
+from hvac.exceptions import InvalidRequest
+from pydantic import BaseModel, constr, ValidationError
 
 from pylon.core.tools import log
 from jinja2 import Template
@@ -30,10 +29,12 @@ from jinja2 import Template
 from . import constants as c
 from ..models.vault import Vault
 
+AnyProject = Union[None, int, str, dict, 'Project']
+
 
 class VaultAuth(BaseModel):
-    role_id: str
-    secret_id: str
+    role_id: constr(min_length=1)
+    secret_id: constr(min_length=1)
 
     class Config:
         fields = {
@@ -42,10 +43,23 @@ class VaultAuth(BaseModel):
         }
 
 
-class VaultClient:
+class VaultDbModel(BaseModel):
+    root_token: str
+    keys: List[str]
+    keys_base64: List[str]
+
     @classmethod
-    def from_project(cls, project: Union[int, str, dict, 'Project']):
-        assert project is not None
+    def from_db(cls, obj: Vault):
+        return cls.parse_obj(obj.unseal_json)
+
+
+class VaultClient:
+    approle_auth_path: str = 'carrier-approle'
+    secrets_path: str = 'project-secrets'
+    admin_kv_mount: str = f'kv-for-{c.VAULT_ADMINISTRATION_NAME}'
+
+    @staticmethod
+    def get_project_creds(project: AnyProject) -> Tuple[dict, int]:
         auth = None
         vault_name = None
         if isinstance(project, int) or isinstance(project, str):
@@ -57,268 +71,288 @@ class VaultClient:
             auth = project
             vault_name = project['id']
         elif project is not None:
-            log.warning('Init vault client from project %s %s', type(project), project)
             auth = project.secrets_json
             vault_name = project.id
-        return cls(vault_auth=auth, vault_name=vault_name, project_id=vault_name)
+        return auth, vault_name
 
-    def __init__(self,
-                 vault_auth: Optional[dict] = None,
-                 vault_name: Union[int, str, None] = c.VAULT_ADMINISTRATION_NAME,
-                 project_id: Optional[int] = None
-                 ):
-        self.auth = None
-        if vault_auth:
-            self.auth = VaultAuth.parse_obj(vault_auth)
-        self.vault_name = vault_name
-        self._client = None
+    @classmethod
+    def from_project(cls, project: AnyProject):
+        assert project is not None
+        return cls(project=project)
+
+    def __init__(self, project: AnyProject = None):
+        self.auth: Optional[VaultAuth] = None
+        if project is None:
+            self.is_administration = True
+            self.vault_name = c.VAULT_ADMINISTRATION_NAME
+            self.project_id = None
+        else:
+            self.is_administration = False
+            auth, vault_name = self.get_project_creds(project)
+            self.vault_name = vault_name
+            try:
+                self.auth = VaultAuth.parse_obj(auth)
+            except ValidationError:
+                log.info('No vault auth data for project %s', project)
+            self.project_id = vault_name
+
+        self.kv_mount = f'kv-for-{self.vault_name}'
+        self.hidden_kv_mount = f'kv-for-hidden-{self.vault_name}'
+        self.approle_name = f'role-for-{self.vault_name}'
+        self.policy_name = f'policy-for-{self.vault_name}'
+
+        self._client: hvac.Client = None
+        self._db_data: VaultDbModel = None
         self._cache = {
-            'secrets': None,
-            'hidden_secrets': None,
-            'all_secrets': None
+            'secrets': {},
+            'hidden_secrets': {},
+            'shared_secrets': {}
         }
-        self.project_id = project_id
+
+        self.set_project_secrets = self.set_secrets
+        self.set_project_hidden_secrets = self.set_hidden_secrets
+        self.get_project_secrets = self.get_secrets
+        self.get_project_hidden_secrets = self.get_hidden_secrets
 
     @property
-    def is_administration(self):
-        return self.vault_name == c.VAULT_ADMINISTRATION_NAME
+    def db_data(self) -> VaultDbModel:
+        if not self._db_data:
+            vault_db = Vault.query.get(c.VAULT_DB_PK)
+            if vault_db is None:
+                self._db_data = VaultClient.init_vault()
+            else:
+                self._db_data = VaultDbModel.from_db(vault_db)
+        return self._db_data
 
     @property
-    def client(self):
+    def client(self) -> hvac.Client:
         if not self._client:
-            """ Get "root" Vault client instance """
-            # Get Vault client
-            client = hvac.Client(url=c.VAULT_URL)
-            VaultClient._unseal(client)
             # Get root token from DB
-            vault = Vault.query.get(c.VAULT_DB_PK)
-            # Add auth info to client
-            client.token = vault.unseal_json["root_token"]
-
+            client = hvac.Client(url=c.VAULT_URL, token=self.db_data.root_token)
+            client.__root_token = self.db_data.root_token
             if self.auth:
-                # Auth to Vault
-                client.auth_approle(
-                    self.auth.role_id,
-                    self.auth.secret_id,
-                    mount_point="carrier-approle",
-                )
+                try:
+                    client.auth.approle.login(**self.auth.dict(), use_token=True, mount_point=VaultClient.approle_auth_path)
+                except:  # workaround to handle outdated pylon
+                    ...
             self._client = client
         return self._client
 
     @staticmethod
-    def init_vault():
+    def init_vault() -> VaultDbModel:
         """ Initialize Vault """
-        # Get Vault client
-        try:
+        log.info('Initializing vault')
+        vault_db_obj = Vault.query.get(c.VAULT_DB_PK)
+        if vault_db_obj is None:
             client = hvac.Client(url=c.VAULT_URL)
-            # Initialize it if needed
+            if client.sys.is_initialized():
+                log.critical('Vault is initialized, but no keys found in db!')
+                raise
+            vault_data = client.sys.initialize()
+            vault_db_obj = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
+
+            if vault_db_obj is None:
+                vault_db_obj = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
+            else:
+                vault_db_obj.unseal_json = vault_data
+            vault_db_obj.insert()
+            db_data = VaultDbModel.from_db(vault_db_obj)
+        else:
+            db_data = VaultDbModel.from_db(vault_db_obj)
+            client = hvac.Client(url=c.VAULT_URL, token=db_data.root_token)
             if not client.sys.is_initialized():
-                vault = Vault.query.get(c.VAULT_DB_PK)
-                # Remove stale DB keys
-                if vault is not None:
-                    Vault.apply_full_delete_by_pk(pk=c.VAULT_DB_PK)
-                # Initialize Vault
                 vault_data = client.sys.initialize()
-                # Save keys to DB
-                vault = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
-                vault.insert()
-            # Unseal if needed
-            VaultClient._unseal(client)
-            # Enable AppRole auth method if needed
-            client = VaultClient().client
-            auth_methods = client.sys.list_auth_methods()
-            if "carrier-approle/" not in auth_methods["data"].keys():
-                client.sys.enable_auth_method(
-                    method_type="approle",
-                    path="carrier-approle",
-                )
-        except ConnectionError:
-            return 0
-
-    @staticmethod
-    def _unseal(client: hvac.Client):
+                vault_db_obj.unseal_json = vault_data
+                vault_db_obj.insert()
+                db_data = VaultDbModel.from_db(vault_db_obj)
+        client.token = db_data.root_token
         if client.sys.is_sealed():
-            try:
-                vault = Vault.query.get(c.VAULT_DB_PK)
-                client.sys.submit_unseal_keys(keys=vault.unseal_json["keys"])
-            except AttributeError:
-                VaultClient.init_vault()
+            client.sys.submit_unseal_keys(keys=db_data.keys)
 
-    def __add_hidden_kv(self) -> None:
+        try:
+            client.sys.enable_auth_method(
+                method_type="approle",
+                path=VaultClient.approle_auth_path,
+            )
+        except InvalidRequest as e:
+            ...
+        return db_data
+
+    def with_admin_token(func):
+        @wraps(func)
+        def wrapper(self: 'VaultClient', *args, **kwargs):
+            stashed_token = self.client.token
+            self.client.token = self.client.__root_token
+            result = func(self, *args, **kwargs)
+            self.client.token = stashed_token
+            return result
+
+        return wrapper
+
+    def _add_secrets_engine(self, mount_path: str, exists_ok: bool = True) -> None:
         # Create hidden secrets KV
         try:
             self.client.sys.enable_secrets_engine(
                 backend_type="kv",
-                path=f"kv-for-hidden-{self.vault_name}",
+                path=mount_path,
                 options={"version": "2"},
             )
             self.client.secrets.kv.v2.create_or_update_secret(
-                path="project-secrets",
-                mount_point=f"kv-for-hidden-{self.vault_name}",
+                path=self.secrets_path,
+                mount_point=mount_path,
                 secret=dict(),
             )
-        except hvac.exceptions.InvalidRequest:
-            pass
+        except InvalidRequest:
+            if not exists_ok:
+                raise
 
-    def __set_hidden_kv_permissions(self) -> None:
-        policy = """
-            # Login with AppRole
-            path "auth/approle/login" {
-              capabilities = [ "create", "read" ]
+    @staticmethod
+    def _make_policy(path: str, capabilities: Optional[list] = None, comment: Optional[str] = None) -> str:
+        if capabilities is None:
+            capabilities = ["create", "read", "update", "delete", "list"]
+        policy_template = '''
+            {% if comment %}# {{ comment }}{% endif %}
+            path "{{ path }}" {
+              capabilities = {{ capabilities | tojson }}
             }
-            # Read/write secrets
-            path "kv-for-{vault_name}/*" {
-              capabilities = ["create", "read", "update", "delete", "list"]
-            }
-            # Read/write hidden secrets
-            path "kv-for-hidden-{vault_name}/*" {
-              capabilities = ["create", "read", "update", "delete", "list"]
-            }
-        """.replace("{vault_name}", str(self.vault_name))
+        '''
+        return Template(policy_template).render(path=path, capabilities=capabilities, comment=comment)
 
-        self.client.sys.create_or_update_policy(
-            name=f"policy-for-{self.vault_name}",
+    def __set_policy(self):
+        policies = [
+            self._make_policy('auth/approle/login', ["create", "read"], 'Login with AppRole'),
+            self._make_policy(f'auth/{self.approle_auth_path}/login', ["create", "read"], 'Login with Carrier AppRole'),
+            self._make_policy(f'{self.kv_mount}/*', comment='Read/write secrets'),
+            self._make_policy(f'{self.hidden_kv_mount}/*', comment='Read/write hidden secrets'),
+        ]
+        if not self.is_administration:
+            policies.append(
+                self._make_policy(
+                    f'{self.admin_kv_mount}/*',
+                    capabilities=["read", "list"],
+                    comment='Read/write shared secrets')
+            )
+        policy = '\n'.join(policies)
+        return self.client.sys.create_or_update_policy(
+            name=self.policy_name,
             policy=policy
         )
 
-    @property
-    def vault_base_url(self) -> str:
-        return f'{c.VAULT_URL}/v1/auth/carrier-approle/role'
-
-    def init_project_space(self) -> dict:
+    @with_admin_token
+    def create_project_space(self, quiet: bool = False) -> VaultAuth:
         """ Create project approle, policy and KV """
-        log.info('Initializing Vault space for [%s]', self.vault_name)
         # Create policy for project
-        self.__set_hidden_kv_permissions()
-        # Create secrets KV
-        self.client.sys.enable_secrets_engine(
-            backend_type="kv",
-            path=f"kv-for-{self.vault_name}",
-            options={"version": "2"},
-        )
-        self.client.secrets.kv.v2.create_or_update_secret(
-            path="project-secrets",
-            mount_point=f"kv-for-{self.vault_name}",
-            secret=dict(),
-        )
-        # Create hidden secrets KV
-        self.__add_hidden_kv()
-        # Create AppRole
-        approle_name = f"role-for-{self.vault_name}"
-        requests.post(
-            f"{self.vault_base_url}/{approle_name}",
-            headers={"X-Vault-Token": self.client.token},
-            json={"policies": [f"policy-for-{self.vault_name}"]}
-        )
-        approle_role_id = requests.get(
-            f"{self.vault_base_url}/{approle_name}/role-id",
-            headers={"X-Vault-Token": self.client.token},
-        ).json()["data"]["role_id"]
-        approle_secret_id = requests.post(
-            f"{self.vault_base_url}/{approle_name}/secret-id",
-            headers={"X-Vault-Token": self.client.token},
-        ).json()["data"]["secret_id"]
-        # Done
-        return {
-            "auth_role_id": approle_role_id,
-            "auth_secret_id": approle_secret_id
-        }
+        self.__set_policy()
 
+        # Create secrets KV
+        try:
+            self._add_secrets_engine(self.kv_mount)
+        except InvalidRequest:
+            if not quiet:
+                raise
+
+        # Create hidden secrets KV
+        try:
+            self._add_secrets_engine(self.hidden_kv_mount)
+        except InvalidRequest:
+            if not quiet:
+                raise
+
+        # Create AppRole
+        self.client.auth.approle.create_or_update_approle(
+            self.approle_name,
+            token_policies=[self.policy_name],
+            mount_point=self.approle_auth_path
+        )
+        approle_id = self.client.auth.approle.read_role_id(
+            self.approle_name,
+            mount_point=self.approle_auth_path
+        )['data']['role_id']
+        secret_id = self.client.auth.approle.generate_secret_id(
+            self.approle_name,
+            mount_point=self.approle_auth_path
+        )['data']['secret_id']
+
+        self.auth = VaultAuth(vault_auth_role_id=approle_id, vault_auth_secret_id=secret_id)
+        self._client = None
+        return self.auth
+
+    @with_admin_token
     def remove_project_space(self) -> None:
         """ Remove project-specific data from Vault """
-        # Remove AppRole
-        requests.delete(
-            f"{self.vault_base_url}/role-for-{self.vault_name}",
-            headers={"X-Vault-Token": self.client.token},
-        )
-        # Remove secrets KV
-        self.client.sys.disable_secrets_engine(
-            path=f"kv-for-{self.vault_name}",
-        )
-        # Remove hidden secrets KV
-        self.client.sys.disable_secrets_engine(
-            path=f"kv-for-hidden-{self.vault_name}",
+        for vault_mount in [self.hidden_kv_mount, self.kv_mount]:
+            self.client.sys.disable_secrets_engine(
+                path=vault_mount,
+            )
+        self.client.auth.approle.delete_role(
+            self.approle_name,
+            mount_point=self.approle_auth_path
         )
         # Remove policy
         self.client.sys.delete_policy(
-            name=f"policy-for-{self.vault_name}",
+            name=self.policy_name,
         )
 
     def set_secrets(self, secrets: dict) -> None:
         """ Set secrets """
         self.client.secrets.kv.v2.create_or_update_secret(
-            path="project-secrets",
-            mount_point=f"kv-for-{self.vault_name}",
+            path=self.secrets_path,
+            mount_point=self.kv_mount,
             secret=secrets,
         )
         self._cache['secrets'] = secrets
-
-    def set_project_secrets(self, secrets: dict) -> None:
-        """ Here for backward compatibility """
-        return self.set_secrets(secrets)
 
     def set_hidden_secrets(self, secrets: dict) -> None:
         """ Set hidden secrets """
         if self.is_administration:
             self.set_project_secrets(secrets)
-        try:
-            self.client.secrets.kv.v2.create_or_update_secret(
-                path="project-secrets",
-                mount_point=f"kv-for-hidden-{self.vault_name}",
-                secret=secrets,
-            )
-            self._cache['hidden_secrets'] = secrets
-        except (hvac.exceptions.Forbidden, hvac.exceptions.InvalidPath):
-            log.error("Exception Forbidden in set_project_hidden_secret")
-            self.__set_hidden_kv_permissions()
-            self.set_project_secrets(secrets)
-
-    def set_project_hidden_secrets(self, secrets: dict) -> None:
-        """ Here for backward compatibility """
-        return self.set_hidden_secrets(secrets)
+        # try:
+        self.client.secrets.kv.v2.create_or_update_secret(
+            path=self.secrets_path,
+            mount_point=self.hidden_kv_mount,
+            secret=secrets,
+        )
+        self._cache['hidden_secrets'] = secrets
+        # except (Forbidden, InvalidPath):
+        #     log.error("Exception in set_project_hidden_secret")
+        #     # self.__set_hidden_kv_permissions()
+        #     # self.set_project_secrets(secrets)
+        #     raise
 
     def _get_vault_data(self, mount_point: str) -> dict:
         return self.client.secrets.kv.v2.read_secret_version(
-            path="project-secrets",
+            path=self.secrets_path,
             mount_point=mount_point,
         ).get("data", {}).get("data", {})
 
     def get_secrets(self) -> dict:
         """ Get secrets """
         if not self._cache['secrets']:
-            self._cache['secrets'] = self._get_vault_data(f"kv-for-{self.vault_name}")
+            self._cache['secrets'] = self._get_vault_data(self.kv_mount)
         return self._cache['secrets']
-
-    def get_project_secrets(self) -> dict:
-        """ Here for backward compatibility """
-        return self.get_secrets()
 
     def get_hidden_secrets(self) -> dict:
         """ Get project hidden secrets """
         if self.is_administration:
             return self.get_secrets()
-        try:
-            if not self._cache['hidden_secrets']:
-                self._cache['hidden_secrets'] = self._get_vault_data(f"kv-for-hidden-{self.vault_name}")
-            return self._cache['hidden_secrets']
-        except (hvac.exceptions.Forbidden, hvac.exceptions.InvalidPath):
-            log.error("Exception Forbidden in get_project_hidden_secret")
-            self.__set_hidden_kv_permissions()
-            return {}
-
-    def get_project_hidden_secrets(self) -> dict:
-        """ Here for backward compatibility """
-        return self.get_hidden_secrets()
+        # try:
+        if not self._cache['hidden_secrets']:
+            self._cache['hidden_secrets'] = self._get_vault_data(self.hidden_kv_mount)
+        return self._cache['hidden_secrets']
+        # except (hvac.exceptions.Forbidden, hvac.exceptions.InvalidPath):
+        #     log.error("Exception Forbidden in get_project_hidden_secret")
+        #     self.__set_hidden_kv_permissions()
+        #     return {}
 
     def get_all_secrets(self) -> dict:
         if self.is_administration:
-            return self.get_project_secrets()
-        if not self._cache['all_secrets']:
-            all_secrets = self.__class__().get_all_secrets()
-            all_secrets.update(self.get_project_hidden_secrets())
-            all_secrets.update(self.get_project_secrets())
-            self._cache['all_secrets'] = all_secrets
-        return self._cache['all_secrets']
+            return self.get_secrets()
+        if not self._cache['shared_secrets']:
+            self._cache['shared_secrets'] = self.__class__().get_all_secrets()
+        all_secrets = self._cache['shared_secrets']
+        all_secrets.update(self.get_hidden_secrets())
+        all_secrets.update(self.get_secrets())
+        return all_secrets
 
     def _unsecret_list(self, array: list, secrets: dict, **kwargs) -> list:
         for i in range(len(array)):
