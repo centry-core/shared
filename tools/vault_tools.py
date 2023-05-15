@@ -27,14 +27,22 @@ from pylon.core.tools import log
 from jinja2 import Template
 
 from . import constants as c
+from .rpc_tools import RpcMixin
 from ..models.vault import Vault
 
 AnyProject = Union[None, int, str, dict, 'Project']
 
 
 class VaultAuth(BaseModel):
-    role_id: constr(min_length=1)
-    secret_id: constr(min_length=1)
+    role_id: constr(min_length=1) = '-'
+    secret_id: constr(min_length=1) = '-'
+
+    @property
+    def _is_default(self) -> bool:
+        return all({
+            self.role_id == VaultAuth.__fields__['role_id'].default,
+            self.secret_id == VaultAuth.__fields__['secret_id'].default
+        })
 
     class Config:
         fields = {
@@ -63,7 +71,6 @@ class VaultClient:
         auth = None
         vault_name = None
         if isinstance(project, int) or isinstance(project, str):
-            from .rpc_tools import RpcMixin
             project = RpcMixin().rpc.call.project_get_or_404(project_id=project)
             auth = project.secrets_json
             vault_name = project.id
@@ -76,11 +83,12 @@ class VaultClient:
         return auth, vault_name
 
     @classmethod
-    def from_project(cls, project: AnyProject):
+    def from_project(cls, project: AnyProject, **kwargs):
+        # This is here for compatibility. No need to init class form this method
         assert project is not None
-        return cls(project=project)
+        return cls(project=project, **kwargs)
 
-    def __init__(self, project: AnyProject = None):
+    def __init__(self, project: AnyProject = None, fix_project_auth: bool = False, **kwargs):
         self.auth: Optional[VaultAuth] = None
         if project is None:
             self.is_administration = True
@@ -114,6 +122,16 @@ class VaultClient:
         self.get_project_secrets = self.get_secrets
         self.get_project_hidden_secrets = self.get_hidden_secrets
 
+        if fix_project_auth:
+            if not self.is_administration and self.auth and self.auth._is_default:
+                log.info('Broken vault auth detected. Trying to fix')
+                self.auth = self._init_approle()
+                if not self.auth._is_default:
+                    project = RpcMixin().rpc.call.project_get_or_404(project_id=self.project_id)
+                    project.secrets_json = self.auth.dict(by_alias=True)
+                    project.commit()
+                    log.info('Vault auth fixed for project %s', self.project_id)
+
     @property
     def db_data(self) -> VaultDbModel:
         if not self._db_data:
@@ -133,7 +151,8 @@ class VaultClient:
             if self.auth:
                 try:
                     client.auth.approle.login(**self.auth.dict(), use_token=True, mount_point=VaultClient.approle_auth_path)
-                except:  # workaround to handle outdated pylon
+                except NotImplementedError:  # workaround to handle outdated pylon
+                    log.warning('Vault approle login failed. Vault will be using root token %s')
                     ...
             self._client = client
         return self._client
@@ -238,6 +257,29 @@ class VaultClient:
             policy=policy
         )
 
+    def _init_approle(self) -> VaultAuth:
+        try:
+            self.client.auth.approle.create_or_update_approle(
+                self.approle_name,
+                token_policies=[self.policy_name],
+                mount_point=self.approle_auth_path
+            )
+            approle_id = self.client.auth.approle.read_role_id(
+                self.approle_name,
+                mount_point=self.approle_auth_path
+            )['data']['role_id']
+            secret_id = self.client.auth.approle.generate_secret_id(
+                self.approle_name,
+                mount_point=self.approle_auth_path
+            )['data']['secret_id']
+
+            self._client = None
+            return VaultAuth(vault_auth_role_id=approle_id, vault_auth_secret_id=secret_id)
+
+        except NotImplementedError:
+            log.warning('Vault approle login failed. Vault will be using root token %s')
+            return VaultAuth(vault_auth_role_id='-', vault_auth_secret_id='-')
+
     @with_admin_token
     def create_project_space(self, quiet: bool = False) -> VaultAuth:
         """ Create project approle, policy and KV """
@@ -259,22 +301,7 @@ class VaultClient:
                 raise
 
         # Create AppRole
-        self.client.auth.approle.create_or_update_approle(
-            self.approle_name,
-            token_policies=[self.policy_name],
-            mount_point=self.approle_auth_path
-        )
-        approle_id = self.client.auth.approle.read_role_id(
-            self.approle_name,
-            mount_point=self.approle_auth_path
-        )['data']['role_id']
-        secret_id = self.client.auth.approle.generate_secret_id(
-            self.approle_name,
-            mount_point=self.approle_auth_path
-        )['data']['secret_id']
-
-        self.auth = VaultAuth(vault_auth_role_id=approle_id, vault_auth_secret_id=secret_id)
-        self._client = None
+        self.auth = self._init_approle()
         return self.auth
 
     @with_admin_token
