@@ -151,7 +151,7 @@ class VaultClient:
             if self.auth:
                 try:
                     client.auth.approle.login(**self.auth.dict(), use_token=True, mount_point=VaultClient.approle_auth_path)
-                except NotImplementedError:  # workaround to handle outdated pylon
+                except (NotImplementedError, InvalidRequest):  # workaround to handle outdated pylon
                     log.warning('Vault approle login failed. Vault will be using root token %s')
                     ...
             self._client = client
