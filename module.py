@@ -49,6 +49,9 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('rpc_tools', rpc_tools)
         self.descriptor.register_tool('api_tools', api_tools)
 
+        from .tools.loki_tools import LokiLogFetcher
+        self.descriptor.register_tool('LokiLogFetcher', LokiLogFetcher)
+
         from .tools import db
         self.db = db
         self.descriptor.register_tool('db', db)
