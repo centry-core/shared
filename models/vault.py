@@ -16,12 +16,9 @@
 #     limitations under the License.
 
 """ Vault DB model """
-
 from sqlalchemy import Column, Integer, JSON  # pylint: disable=E0401
 
-# from .abstract_base import AbstractBaseMixin
-# from ..db_manager import Base
-from tools import db, db_tools
+from ..tools import db, db_tools
 
 
 class Vault(db_tools.AbstractBaseMixin, db.Base):  # pylint: disable=C0111

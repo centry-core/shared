@@ -13,12 +13,7 @@
 #   limitations under the License.
 
 """ Module """
-
-import pymongo  # pylint: disable=E0401
-
-from pylon.core.tools import log  # pylint: disable=E0611,E0401
-from pylon.core.tools import module  # pylint: disable=E0611,E0401
-from pylon.core.tools.context import Context as Holder  # pylint: disable=E0611,E0401
+from pylon.core.tools import module, log  # pylint: disable=E0611,E0401
 
 
 class Module(module.ModuleModel):
@@ -67,16 +62,6 @@ class Module(module.ModuleModel):
         @self.context.app.teardown_appcontext
         def shutdown_session(exception=None):
             db.session.remove()
-
-        self.mongo = Holder()
-        self.mongo.url = self.descriptor.config.get("mongo_connection", None)
-        self.mongo.options = self.descriptor.config.get("mongo_options", dict())
-        self.mongo.db_name = self.descriptor.config.get("mongo_db", None)
-        self.mongo.client = pymongo.MongoClient(
-            self.mongo.url, **self.mongo.options
-        )
-        self.mongo.db = self.mongo.client[self.mongo.db_name]
-        self.descriptor.register_tool("mongo", self.mongo)
 
         from .tools.minio_client import MinioClient, MinioClientAdmin
         self.descriptor.register_tool('MinioClient', MinioClient)
