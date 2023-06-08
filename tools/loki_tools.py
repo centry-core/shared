@@ -50,6 +50,7 @@ class LokiLogFetcher:
             'start': start,
             'query': query
         }
+        # logging.info('QQQWWW %s | %s', self.url, params)
         resp = requests.get(
             self.url,
             params=params
