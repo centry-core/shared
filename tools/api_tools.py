@@ -127,12 +127,16 @@ def upload_file(bucket: str,
         pass
 
 
-def upload_file_admin(bucket: str, f, create_if_not_exists: bool = True, **kwargs) -> None:
+def upload_file_admin(bucket: str, 
+                      f, 
+                      integration_id: Optional[int] = None, 
+                      create_if_not_exists: bool = True, 
+                      **kwargs) -> None:
     upload_file_base(
         bucket=bucket,
         data=f.read(),
         file_name=f.filename,
-        client=MinioClientAdmin(),
+        client=MinioClientAdmin(integration_id),
         create_if_not_exists=create_if_not_exists
     )
     try:

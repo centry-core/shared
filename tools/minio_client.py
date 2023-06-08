@@ -1,6 +1,7 @@
 import logging
 from abc import abstractmethod, ABC
 from json import loads
+from queue import Empty
 from typing import Optional
 
 import boto3
@@ -30,6 +31,32 @@ class MinioClientABC(ABC):
             config=Config(signature_version="s3v4"),
             region_name=region_name
         )
+
+    def extract_access_data(self, integration_id: Optional[int]=None, is_local: bool=True) -> tuple:
+        rpc_manager = RpcMixin().rpc
+        try:
+            if self.project:
+                settings = rpc_manager.timeout(3).integrations_get_s3_settings(
+                    self.project.id, integration_id, is_local)
+            else:
+                settings = rpc_manager.timeout(3).integrations_get_s3_admin_settings(
+                    integration_id)                
+        except Empty:
+            settings = None
+        if settings:
+            return (
+                settings['access_key'],
+                settings['secret_access_key'],
+                settings['region_name'], 
+                settings['storage_url'] if settings['use_compatible_storage'] else None
+                )
+        # if self.project and self.PROJECT_SECRET_KEY in (self.project.secrets_json or {}):
+        #     aws_access_json = self.project.secrets_json[self.PROJECT_SECRET_KEY]
+        #     aws_access_key_id = aws_access_json.get("aws_access_key_id")
+        #     aws_secret_access_key = aws_access_json.get("aws_secret_access_key")
+        #     return aws_access_key_id, aws_secret_access_key, MINIO_REGION, MINIO_ENDPOINT
+        return MINIO_ACCESS, MINIO_SECRET, MINIO_REGION, MINIO_ENDPOINT
+
 
     @property
     @abstractmethod
@@ -165,7 +192,7 @@ class MinioClientABC(ABC):
     def select_object_content(self, bucket: str, file_name: str, expression_addon: str = '') -> list:
         try:
             response = self.s3_client.select_object_content(
-                Bucket=bucket,
+                Bucket=self.format_bucket_name(bucket),
                 Key=file_name,
                 ExpressionType='SQL',
                 Expression=f"select * from s3object s{expression_addon}",
@@ -206,6 +233,13 @@ class MinioClientABC(ABC):
 
 
 class MinioClientAdmin(MinioClientABC):
+    def __init__(self, 
+                 integration_id: Optional[int]=None, 
+                 logger: Optional[logging.Logger]=None):
+        self.project = None
+        access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id)
+        super().__init__(access_key, secret_access_key, region_name, url, logger)
+
     @property
     def bucket_prefix(self) -> str:
         return 'p--administration.'
@@ -231,26 +265,6 @@ class MinioClient(MinioClientABC):
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id, 
                                                                                    is_local)
         super().__init__(access_key, secret_access_key, region_name, url, logger)
-
-    def extract_access_data(self, integration_id: Optional[int]=None, is_local: bool=True) -> tuple:
-        if self.project:
-            rpc_manager = RpcMixin().rpc
-            settings = rpc_manager.call.integrations_get_s3_settings(self.project.id, 
-                                                                     integration_id,
-                                                                     is_local)
-            if settings:
-                return (
-                    settings['access_key'],
-                    settings['secret_access_key'],
-                    settings['region_name'], 
-                    settings['storage_url'] if settings['use_compatible_storage'] else None
-                )
-        if self.project and self.PROJECT_SECRET_KEY in (self.project.secrets_json or {}):
-            aws_access_json = self.project.secrets_json[self.PROJECT_SECRET_KEY]
-            aws_access_key_id = aws_access_json.get("aws_access_key_id")
-            aws_secret_access_key = aws_access_json.get("aws_secret_access_key")
-            return aws_access_key_id, aws_secret_access_key, MINIO_REGION, MINIO_ENDPOINT
-        return MINIO_ACCESS, MINIO_SECRET, MINIO_REGION, MINIO_ENDPOINT
 
     @property
     def bucket_prefix(self) -> str:
