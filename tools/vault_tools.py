@@ -24,7 +24,7 @@ from hvac.exceptions import InvalidRequest
 from pydantic import BaseModel, constr, ValidationError
 
 from pylon.core.tools import log
-from jinja2 import Template
+from jinja2 import Template, Environment, nodes
 
 from . import constants as c
 from .rpc_tools import RpcMixin
@@ -65,6 +65,7 @@ class VaultClient:
     approle_auth_path: str = 'carrier-approle'
     secrets_path: str = 'project-secrets'
     admin_kv_mount: str = f'kv-for-{c.VAULT_ADMINISTRATION_NAME}'
+    template_node_name: str = 'secret'
 
     @staticmethod
     def get_project_creds(project: AnyProject) -> Tuple[dict, int]:
@@ -88,7 +89,10 @@ class VaultClient:
         assert project is not None
         return cls(project=project, **kwargs)
 
-    def __init__(self, project: AnyProject = None, fix_project_auth: bool = False, **kwargs):
+    def __init__(self, project: AnyProject = None, fix_project_auth: bool = False,
+                 track_used_secrets: bool = False, **kwargs):
+        self.track_used_secrets = track_used_secrets
+        self.used_secrets = set()
         self.auth: Optional[VaultAuth] = None
         if project is None:
             self.is_administration = True
@@ -391,12 +395,24 @@ class VaultClient:
             json[key] = self.unsecret(json[key], secrets, **kwargs)
         return json
 
+    def __unsecret_string(self, value: str, secrets: dict) -> str:
+        if self.track_used_secrets:
+            env = Environment()
+            ast = env.parse(value)
+            for i in ast.find_all(nodes.Getattr):
+                n = i.find(nodes.Name)
+                if n.name == self.template_node_name:
+                    secret_value = secrets.get(i.attr)
+                    if secret_value:
+                        self.used_secrets.add(secret_value)
+        template = Template(value)
+        return template.render(secret=secrets)
+
     def unsecret(self, value: Any, secrets: Optional[dict] = None, **kwargs) -> Any:
         if not secrets:
             secrets = self.get_all_secrets()
         if isinstance(value, str):
-            template = Template(value)
-            return template.render(secret=secrets)
+            return self.__unsecret_string(value, secrets)
         elif isinstance(value, list):
             return self._unsecret_list(value, secrets)
         elif isinstance(value, dict):
