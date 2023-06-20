@@ -1,5 +1,3 @@
-import logging
-
 import requests
 from typing import Tuple, Optional, Literal, Union
 from collections import defaultdict
@@ -7,6 +5,8 @@ from io import BytesIO
 from datetime import datetime
 
 from .vault_tools import AnyProject, VaultClient
+
+from pylon.core.tools import log
 
 
 class LokiLogFetcher:
@@ -21,15 +21,17 @@ class LokiLogFetcher:
     @staticmethod
     def make_url(project_or_id: AnyProject = None, api_path: str = '/api/v1/query_range', **kwargs) -> str:
         secrets: dict = VaultClient(project=project_or_id).get_all_secrets()
-        loki_host: str = secrets['loki_host']
-        return f'{loki_host}/loki{api_path}'
+        loki_host: str = secrets['loki_host'].rstrip('/')
+        loki_port: str = secrets['loki_port']
+        return f'{loki_host}:{loki_port}/loki{api_path}'
 
     def __init__(self, url: Optional[str] = None, date_format: str = "%Y-%m-%d %H:%M:%S",
                  query_limit: int = 5000, next_chunk_step_ns: int = 1, data_parse_structure: type = list) -> None:
         assert data_parse_structure in self.available_data_structures, f'This data structure is not supported {data_parse_structure}. Use one of these: {self.available_data_structures}'
         if not url:
             url = self.make_url()
-            logging.warning('Loki url is not specified. Will generate default one: %s', url)
+            log.warning('Loki url is not specified. Will generate default one')
+        log.info('Loki fetcher url: %s', url)
         self.url = url
         self.date_format = date_format
         self.query_limit = query_limit
