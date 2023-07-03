@@ -57,28 +57,4 @@ VAULT_ADMINISTRATION_NAME = ADMINISTRATION_MODE
 DEFAULT_MODE = 'default'
 GRID_ROUTER_URL = environ.get("GRID_ROUTER_URL", f"{EXTERNAL_LOKI_HOST}:4444/quota")
 
-
-# def allowed_file(filename):
-#     return '.' in filename and \
-#            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-# UNZIP_DOCKERFILE = """FROM kubeless/unzip:latest
-# ADD {localfile} /tmp/{docker_path}
-# ENTRYPOINT ["unzip", "/tmp/{docker_path}", "-d", "/tmp/unzipped"]
-# """
-
-
-# UNZIP_DOCKER_COMPOSE = """version: '3'
-# services:
-#   unzip:
-#     build: {path}
-#     volumes:
-#       - {volume}:/tmp/unzipped
-#     labels:
-#       - 'traefik.enable=false'
-#     container_name: unzip-{task_id}
-# volumes:
-#   {volume}:
-#     external: true
-# """
+BACKEND_PERFORMANCE_RESULTS_RETENTION = 30  # in days
