@@ -21,7 +21,8 @@ class MinioClientABC(ABC):
                  aws_secret_access_key: str = MINIO_SECRET,
                  region_name: str = MINIO_REGION,
                  endpoint_url: str = MINIO_ENDPOINT,
-                 logger: Optional[logging.Logger] = None
+                 logger: Optional[logging.Logger] = None,
+                 **kwargs
                  ):
         self._logger = logger or logging.getLogger(self.__class__.__name__.lower())
         self.s3_client = boto3.client(
@@ -230,7 +231,8 @@ class MinioClientABC(ABC):
 class MinioClientAdmin(MinioClientABC):
     def __init__(self,
                  integration_id: Optional[int] = None,
-                 logger: Optional[logging.Logger] = None):
+                 logger: Optional[logging.Logger] = None,
+                 **kwargs):
         self.project = None
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id)
         super().__init__(access_key, secret_access_key, region_name, url, logger)
@@ -246,7 +248,8 @@ class MinioClient(MinioClientABC):
                         integration_id: Optional[int] = None,
                         is_local: bool = True,
                         logger: Optional[logging.Logger] = None,
-                        rpc_manager=None):
+                        rpc_manager=None,
+                        **kwargs):
         if not rpc_manager:
             rpc_manager = RpcMixin().rpc
         project = rpc_manager.call.project_get_or_404(project_id=project_id)
@@ -255,7 +258,8 @@ class MinioClient(MinioClientABC):
     def __init__(self, project,
                  integration_id: Optional[int] = None,
                  is_local: bool = True,
-                 logger: Optional[logging.Logger] = None):
+                 logger: Optional[logging.Logger] = None,
+                 **kwargs):
         self.project = project
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
                                                                                    is_local)
