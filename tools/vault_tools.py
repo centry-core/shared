@@ -174,10 +174,10 @@ class VaultClient:
             vault_data = client.sys.initialize()
             vault_db_obj = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
 
-            if vault_db_obj is None:
-                vault_db_obj = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
-            else:
-                vault_db_obj.unseal_json = vault_data
+            # if vault_db_obj is None:
+            #     vault_db_obj = Vault(id=c.VAULT_DB_PK, unseal_json=vault_data)
+            # else:
+            #     vault_db_obj.unseal_json = vault_data
             vault_db_obj.insert()
             db_data = VaultDbModel.from_db(vault_db_obj)
         else:
