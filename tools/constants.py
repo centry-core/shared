@@ -13,8 +13,6 @@
 #   limitations under the License.
 
 from os import environ
-from datetime import datetime
-from typing import Union
 from urllib.parse import urlparse
 
 LOCAL_DEV = True
@@ -32,30 +30,29 @@ RABBIT_PASSWORD = environ['RABBITMQ_PASSWORD']
 RABBIT_PORT = environ.get('RABBIT_PORT', 5672)
 RABBIT_QUEUE_NAME = environ.get('RABBIT_QUEUE_NAME', 'default')
 APP_HOST = environ['APP_HOST']
+APP_IP = environ['APP_IP']
 GF_API_KEY = environ.get('GF_API_KEY', '')
 INFLUX_PASSWORD = environ.get('INFLUX_PASSWORD', '')
 INFLUX_USER = environ.get('INFLUX_USER', '')
 INFLUX_PORT = environ.get('INFLUX_PORT', 8086)
-LOKI_PORT = environ.get('LOKI_PORT', 3100)
 _url = urlparse(APP_HOST)
-EXTERNAL_LOKI_HOST = environ.get(
+LOKI_HOST = environ.get(
     'LOKI_HOST',
-    f"http://{_url.netloc.split('@')[1]}" if "@" in APP_HOST else APP_HOST.replace("https://", "http://")
+    APP_HOST.replace("https://", "http://") if APP_IP in APP_HOST else f"http://{APP_IP}"
 )
+LOKI_PORT = environ.get('LOKI_PORT', 3100)
 # INTERNAL_LOKI_HOST = "http://carrier-loki"
-APP_IP = urlparse(EXTERNAL_LOKI_HOST).netloc
 MINIO_ENDPOINT = environ.get('MINIO_HOST', 'http://carrier-minio:9000')
 MINIO_ACCESS = environ.get('MINIO_ACCESS_KEY', 'admin')
 MINIO_SECRET = environ.get('MINIO_SECRET_KEY', 'password')
 MINIO_REGION = environ.get('MINIO_REGION', 'us-east-1')
-# LOKI_HOST = environ.get('LOKI', f'{EXTERNAL_LOKI_HOST}:3100')
 MAX_DOTS_ON_CHART = 100
 VAULT_URL = environ.get('VAULT_URL', 'http://carrier-vault:8200')
 VAULT_DB_PK = 1
 ADMINISTRATION_MODE = 'administration'
 VAULT_ADMINISTRATION_NAME = ADMINISTRATION_MODE
 DEFAULT_MODE = 'default'
-GRID_ROUTER_URL = environ.get("GRID_ROUTER_URL", f"{EXTERNAL_LOKI_HOST}:4444/quota")
+GRID_ROUTER_URL = environ.get("GRID_ROUTER_URL", f"{LOKI_HOST}:4444/quota")
 
 BACKEND_PERFORMANCE_RESULTS_RETENTION = 30  # in days
 BUCKET_RETENTION_DAYS = 7
