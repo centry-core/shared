@@ -32,13 +32,15 @@ class Module(module.ModuleModel):
 
         from .tools.rpc_tools import RpcMixin, EventManagerMixin
         RpcMixin.set_rpc_manager(self.context.rpc_manager)
-        EventManagerMixin.set_manager(self.context.event_manager)
-
-        from .tools import constants
-        self.descriptor.register_tool('constants', constants)
+        EventManagerMixin.set_event_manager(self.context.event_manager)
 
         from .tools.config import Config
-        self.descriptor.register_tool('config', Config())
+        _config = Config()
+        self.descriptor.register_tool('constants', _config)
+        self.descriptor.register_tool('config', _config)
+
+        # from .tools.config import Config
+        # self.descriptor.register_tool('config', Config())
 
         from .tools import rpc_tools, api_tools
         self.descriptor.register_tool('rpc_tools', rpc_tools)

@@ -26,9 +26,11 @@ from pydantic import BaseModel, constr, ValidationError
 from pylon.core.tools import log
 from jinja2 import Template, Environment, nodes
 
-from . import constants as c
 from .rpc_tools import RpcMixin
 from ..models.vault import Vault
+
+from tools import config as c
+
 
 AnyProject = Union[None, int, str, dict, 'Project']
 
