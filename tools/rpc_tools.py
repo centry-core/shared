@@ -68,7 +68,7 @@ class EventManagerMixin:
     _event_manager = None
 
     @classmethod
-    def set_manager(cls, event_manager: EventManager):
+    def set_event_manager(cls, event_manager: EventManager):
         cls._event_manager = event_manager
 
     @property

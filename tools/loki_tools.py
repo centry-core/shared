@@ -1,16 +1,26 @@
 import requests
-from typing import Tuple, Optional, Literal, Union
+from typing import Tuple, Optional, Literal
 from collections import defaultdict
 from io import BytesIO
 from datetime import datetime
 
 from .vault_tools import AnyProject, VaultClient
-
 from pylon.core.tools import log
+
+from tools import config as c
 
 
 class LokiLogFetcher:
     available_data_structures = [list, dict]
+
+    def get_websocket_url(self, project: Optional[AnyProject] = None):
+        ws_scheme = 'wss' if c.APP_SCHEME == 'https' else 'ws'
+        url = self.make_url(
+            project_or_id=project,
+            external=True,
+            api_path='/api/v1/tail'
+        ).removeprefix(c.APP_SCHEME)
+        return f'{ws_scheme}{url}'
 
     @classmethod
     def from_project(cls, project: AnyProject, **kwargs):
@@ -19,17 +29,33 @@ class LokiLogFetcher:
         return cls(url=url, **kwargs)
 
     @staticmethod
-    def make_url(project_or_id: AnyProject = None, api_path: str = '/api/v1/query_range', **kwargs) -> str:
-        secrets: dict = VaultClient(project=project_or_id).get_all_secrets()
-        loki_host: str = secrets['loki_host'].rstrip('/')
-        loki_port: str = secrets['loki_port']
-        return f'{loki_host}:{loki_port}/loki{api_path}'
+    def make_url(project_or_id: AnyProject = None, *, api_path: str = '/api/v1/query_range', external: bool = False,
+                 vault_client: Optional[VaultClient] = None, **kwargs) -> str:
+        '''
+
+        :param project_or_id: Project model instance or project id as int
+        :param api_path: loki api path
+        :param external: True will access loki through ip, False - through docker network
+        :param vault_client: If you have vault client already, pass it here to reduce amount of queries
+        :param kwargs:
+        :return: string url for loki api
+        '''
+        if external:
+            if not vault_client:
+                vault_client = VaultClient(project=project_or_id)
+            secrets: dict = vault_client.get_all_secrets()
+            loki_host: str = secrets['loki_host'].rstrip('/')
+            loki_port: str = secrets['loki_port']
+            return f'{loki_host}:{loki_port}/loki{api_path}'
+        else:
+            return f'{c.LOKI_HOST_INTERNAL}:{c.LOKI_PORT}/loki{api_path}'
 
     def __init__(self, url: Optional[str] = None, date_format: str = "%Y-%m-%d %H:%M:%S",
-                 query_limit: int = 5000, next_chunk_step_ns: int = 1, data_parse_structure: type = list) -> None:
+                 query_limit: int = 5000, next_chunk_step_ns: int = 1, data_parse_structure: type = list,
+                 **kwargs) -> None:
         assert data_parse_structure in self.available_data_structures, f'This data structure is not supported {data_parse_structure}. Use one of these: {self.available_data_structures}'
         if not url:
-            url = self.make_url()
+            url = self.make_url(**kwargs)
             log.warning('Loki url is not specified. Will generate default one')
         log.info('Loki fetcher url: %s', url)
         self.url = url

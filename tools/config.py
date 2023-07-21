@@ -1,75 +1,103 @@
-#     Copyright 2020 getcarrier.io
+#   Copyright 2023 getcarrier.io
 #
-#     Licensed under the Apache License, Version 2.0 (the "License");
-#     you may not use this file except in compliance with the License.
-#     You may obtain a copy of the License at
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
 #
-#         http://www.apache.org/licenses/LICENSE-2.0
+#       http://www.apache.org/licenses/LICENSE-2.0
 #
-#     Unless required by applicable law or agreed to in writing, software
-#     distributed under the License is distributed on an "AS IS" BASIS,
-#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#     See the License for the specific language governing permissions and
-#     limitations under the License.
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 
-import os
-from typing import Optional
-from pathlib import Path
-
-from .constants import LOCAL_DEV, RABBIT_HOST, RABBIT_PORT, RABBIT_USER, RABBIT_PASSWORD
+from os import environ
+from pylon.core.tools import log
 from ..patterns import SingletonABC
 
 
-# basedir = os.path.abspath(os.path.dirname(__file__))
-
-
 class Config(metaclass=SingletonABC):
-    APP_HOST: str = os.environ.get("IP") or "0.0.0.0"
-    APP_PORT: int = int(os.environ.get("APP_PORT", 5000)) or 5000
-    DATABASE_VENDOR: str = os.environ.get("DATABASE_VENDOR", "postgres")
-    DATABASE_URI: str = os.environ.get("DATABASE_URL") or "sqlite:////tmp/test.db"
-    UPLOAD_FOLDER: str = os.environ.get("TASKS_UPLOAD_FOLDER", "/tmp/tasks")
-    Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
-    DATE_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
-    SUPERADMIN_GROUP = "/superadmin"
+    LOCAL_DEV = bool(environ.get('LOCAL_DEV'))
+    # this determines whether some secrets are overwritten
+    # with env values upon centry restart
+    PERSISTENT_SECRETS = bool(environ.get('PERSISTENT_SECRETS'))
+    CURRENT_RELEASE = environ.get('CURRENT_RELEASE', 'latest')
+    ADMINISTRATION_MODE = 'administration'
+    DEFAULT_MODE = 'default'
+    MAX_DOTS_ON_CHART = 100
+    BACKEND_PERFORMANCE_RESULTS_RETENTION = 30  # in days
+    BUCKET_RETENTION_DAYS = 7
 
-    DATABASE_SCHEMA: Optional[str] = None
+    APP_IP = environ['APP_IP']
+    APP_HOST = environ['APP_HOST']
+    APP_SCHEME = environ.get('APP_SCHEME', 'http')
 
-    SECRET_KEY = os.environ.get("SECRET_KEY", ":iMHK_F`4hyrE;Wfr;+Ui8l&R3wYiB")
-    PROJECT_CACHE_KEY = os.environ.get("PROJECT_CACHE_KEY", "project_cache_key")
-    PROJECT_CACHE_PLUGINS = os.environ.get("PROJECT_CACHE_PLUGINS", "project_cache_plugins")
-    USER_CACHE_KEY = os.environ.get("USER_CACHE_KEY", "user_session")
-    DEV = LOCAL_DEV
-    RABBIT_HOST = RABBIT_HOST
-    RABBIT_PORT = RABBIT_PORT
-    RABBIT_USER = RABBIT_USER
-    RABBIT_PASSWORD = RABBIT_PASSWORD
+    REDIS_USER = environ.get('REDIS_USER', '')
+    REDIS_PASSWORD = environ['REDIS_PASSWORD']
+    REDIS_HOST = environ.get('REDIS_HOST', 'carrier-redis')
+    REDIS_PORT = environ.get('REDIS_PORT', 6379)
+    REDIS_DB = environ.get('REDIS_DB', 2)
+    REDIS_RABBIT_DB = environ.get('REDIS_RABBIT_DB', 4)
 
-    def __init__(self) -> None:
+    RABBIT_HOST = environ.get('RABBIT_HOST', 'carrier-rabbit')
+    RABBIT_USER = environ['RABBIT_USER']
+    RABBIT_PASSWORD = environ['RABBIT_PASSWORD']
+    RABBIT_PORT = environ.get('RABBIT_PORT', 5672)
+    RABBIT_QUEUE_NAME = environ.get('RABBIT_QUEUE_NAME', 'default')
 
-        self.db_engine_config = {
-            "isolation_level": "READ COMMITTED" if self.DATABASE_VENDOR != 'sqlite' else 'SERIALIZABLE',
-            "echo": False
-        }
+    # GF_API_KEY = environ.get('GF_API_KEY', '')
+    INFLUX_PASSWORD = environ.get('INFLUX_PASSWORD', '')
+    INFLUX_USER = environ.get('INFLUX_USER', '')
+    INFLUX_PORT = environ.get('INFLUX_PORT', 8086)
 
-        if self.DATABASE_VENDOR == "postgres":
+    LOKI_HOST = environ.get('LOKI_HOST', APP_HOST)
+    LOKI_HOST_INTERNAL = environ.get('LOKI_HOST_INTERNAL', 'http://carrier-loki')
+    LOKI_PORT = environ.get('LOKI_PORT', 3100)
 
-            self.DATABASE_SCHEMA = os.environ.get("POSTGRES_SCHEMA", "carrier")
+    MINIO_URL = environ.get('MINIO_URL', 'http://carrier-minio:9000')
+    MINIO_ACCESS = environ['MINIO_ACCESS_KEY']
+    MINIO_ACCESS_KEY = MINIO_ACCESS
+    MINIO_SECRET = environ['MINIO_SECRET_KEY']
+    MINIO_SECRET_KEY = MINIO_SECRET
+    MINIO_REGION = environ.get('MINIO_REGION', 'us-east-1')
 
-            host = os.environ.get("POSTGRES_HOST", "127.0.0.1" if self.DEV else "carrier-postgres")
-            port = os.environ.get("POSTGRES_PORT", 5432)
-            database = os.environ.get("POSTGRES_DB", "carrier")
-            username = os.environ.get("POSTGRES_USER", "carrier")
-            password = os.environ.get("POSTGRES_PASSWORD", "password")
+    VAULT_URL = environ.get('VAULT_URL', 'http://carrier-vault:8200')
+    VAULT_DB_PK = 1
+    VAULT_ADMINISTRATION_NAME = ADMINISTRATION_MODE
 
-            self.DATABASE_URI = "postgresql://{username}:{password}@{host}:{port}/{database}".format(
-                username=username,
-                password=password,
-                host=host,
-                port=port,
-                database=database
-            )
+    DATABASE_VENDOR = environ['DATABASE_VENDOR']
+    POSTGRES_SCHEMA = environ['POSTGRES_SCHEMA']
+    POSTGRES_HOST = environ['POSTGRES_HOST']
+    POSTGRES_PORT = environ['POSTGRES_PORT']
+    POSTGRES_DB = environ['POSTGRES_DB']
+    POSTGRES_USER = environ['POSTGRES_USER']
+    POSTGRES_PASSWORD = environ['POSTGRES_PASSWORD']
 
-            self.db_engine_config["pool_size"] = 50
-            self.db_engine_config["max_overflow"] = 100
-            self.db_engine_config['pool_pre_ping'] = True
+    PROJECT_CACHE_PLUGINS = 'PROJECT_CACHE_PLUGINS'
+    PROJECT_CACHE_KEY = 'PROJECT_CACHE_KEY'
+
+    DATABASE_URI = ''
+    DATABASE_ENGINE_OPTIONS = {
+        'isolation_level': 'READ COMMITTED',
+        'echo': False,
+        'pool_size': 50,
+        'max_overflow': 100,
+        'pool_pre_ping': True
+    }
+
+    def __init__(self):
+        match self.DATABASE_VENDOR:
+            case 'sqlite':
+                Config.DATABASE_ENGINE_OPTIONS['isolation_level'] = 'SERIALIZABLE'
+                Config.DATABASE_URI = 'sqlite:///sqlite.db'
+            case _:
+                Config.DATABASE_URI = 'postgresql://{username}:{password}@{host}:{port}/{database}'.format(
+                    host=self.POSTGRES_HOST,
+                    port=self.POSTGRES_PORT,
+                    username=self.POSTGRES_USER,
+                    password=self.POSTGRES_PASSWORD,
+                    database=self.POSTGRES_DB
+                )
+        log.info('Initializing config %s', self)
+        log.critical('Initializing config %s', self)

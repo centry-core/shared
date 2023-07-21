@@ -21,14 +21,15 @@ from flask_restful import Resource, abort
 
 from .minio_client import MinioClient, MinioClientAdmin
 from .rpc_tools import RpcMixin
-from .constants import DEFAULT_MODE
+
+from tools import config as c
 
 
 def prepare_filter(
         project_id: Optional[int], args: dict, data_model,
         additional_filters: Optional[list] = None,
         rpc_manager: Optional[Callable] = None,
-        mode: str = DEFAULT_MODE
+        mode: str = c.DEFAULT_MODE
         ) -> SQLColumnExpression:
     filter_ = []
     try:
@@ -91,6 +92,7 @@ def get(project_id: Optional[int], args: dict, data_model,
 
 
 def upload_file_base(bucket: str, data: bytes, file_name: str, client, create_if_not_exists: bool = True) -> None:
+    # avoid using this, try MinioClient instead
     if create_if_not_exists:
         if bucket not in client.list_bucket():
             bucket_type = 'system' if bucket in ('tasks', 'tests') else 'local'
@@ -105,6 +107,7 @@ def upload_file(bucket: str,
                 is_local: bool = True,
                 create_if_not_exists: bool = True, 
                 **kwargs) -> None:
+    # avoid using this, try MinioClient instead
     if isinstance(project, (str, int)):
         mc = MinioClient.from_project_id(project_id=project, 
                                          integration_id=integration_id, 
@@ -132,6 +135,7 @@ def upload_file_admin(bucket: str,
                       integration_id: Optional[int] = None, 
                       create_if_not_exists: bool = True, 
                       **kwargs) -> None:
+    # avoid using this, try MinioClient instead
     upload_file_base(
         bucket=bucket,
         data=f.read(),

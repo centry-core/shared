@@ -21,10 +21,10 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from tools import config
 from pylon.core.tools import log
 
 from .db import session
+from tools import config as c
 
 
 def sqlalchemy_mapping_to_dict(obj):
@@ -35,16 +35,16 @@ def sqlalchemy_mapping_to_dict(obj):
 class AbstractBaseMixin:
     _session = session
     __table__ = None
-    __table_args__ = {"schema": config.DATABASE_SCHEMA} if config.DATABASE_SCHEMA else None
+    __table_args__ = {"schema": c.POSTGRES_SCHEMA}
 
     def __repr__(self) -> str:
         return json.dumps(self.to_json(), indent=2)
 
     def to_json(self, exclude_fields: tuple = ()) -> dict:
-        log.warning('Be cautious "to_json()". Better write your own serialization for %s', getattr(self, '__tablename__'))
+        log.debug('Be cautious "to_json()". Better write your own serialization for %s', getattr(self, '__tablename__'))
         result = dict()
         for column in self.__table__.columns:
-            if column.name not in exclude_fields:
+            if column.name not in set(exclude_fields):
                 value = getattr(self, column.name)
                 if isinstance(value, datetime):
                     value = value.isoformat()

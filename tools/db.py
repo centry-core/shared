@@ -1,16 +1,13 @@
 from contextlib import contextmanager
-
 from flask_sqlalchemy import BaseQuery
-from flask_sqlalchemy.session import Session
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from tools import config
+from tools import config as c
 
-url = config.DATABASE_URI
-options = config.db_engine_config
-engine = create_engine(url, **options)
+
+engine = create_engine(c.DATABASE_URI, **c.DATABASE_ENGINE_OPTIONS)
 session = scoped_session(sessionmaker(bind=engine))
 Base = declarative_base()
 Base.query = session.query_property(query_cls=BaseQuery)
@@ -50,9 +47,10 @@ def with_project_schema_session(project_id: int | None):
         schema_translate_map = None
 
     connectable = engine.execution_options(schema_translate_map=schema_translate_map)
-
+    db = None
     try:
         db = scoped_session(sessionmaker(bind=connectable))
         yield db
     finally:
-        db.close()
+        if db:
+            db.close()
