@@ -100,4 +100,3 @@ class Config(metaclass=SingletonABC):
                     database=self.POSTGRES_DB
                 )
         log.info('Initializing config %s', self)
-        log.critical('Initializing config %s', self)
