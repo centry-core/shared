@@ -31,7 +31,9 @@ def get_tenant_specific_metadata():
 
 def get_project_schema_session(project_id: int | None):
     if project_id:
-        schema_translate_map = dict(tenant=f"Project-{project_id}")
+        from tools import project_constants as pc
+        template = pc['PROJECT_SCHEMA_TEMPLATE']
+        schema_translate_map = dict(tenant=template.format(project_id))
     else:
         schema_translate_map = None
 
@@ -42,7 +44,9 @@ def get_project_schema_session(project_id: int | None):
 @contextmanager
 def with_project_schema_session(project_id: int | None):
     if project_id:
-        schema_translate_map = dict(tenant=f"Project-{project_id}")
+        from tools import project_constants as pc
+        template = pc['PROJECT_SCHEMA_TEMPLATE']
+        schema_translate_map = dict(tenant=template.format(project_id))
     else:
         schema_translate_map = None
 
