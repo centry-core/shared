@@ -317,10 +317,13 @@ class VaultClient:
             self.client.sys.disable_secrets_engine(
                 path=vault_mount,
             )
-        self.client.auth.approle.delete_role(
-            self.approle_name,
-            mount_point=self.approle_auth_path
-        )
+        try:
+            self.client.auth.approle.delete_role(
+                self.approle_name,
+                mount_point=self.approle_auth_path
+            )
+        except NotImplementedError:
+            ...
         # Remove policy
         self.client.sys.delete_policy(
             name=self.policy_name,
