@@ -2,12 +2,13 @@ from abc import abstractmethod, ABC
 from json import loads
 from queue import Empty
 from typing import Optional
+import sys
 
 import boto3
 from botocore.client import Config, ClientError
 from pylon.core.tools import log
 
-from .rpc_tools import RpcMixin
+from .rpc_tools import RpcMixin, EventManagerMixin
 
 from tools import config as c
 
@@ -31,6 +32,7 @@ class MinioClientABC(ABC):
             config=Config(signature_version="s3v4"),
             region_name=region_name
         )
+        self.event_manager = EventManagerMixin().event_manager
 
     def extract_access_data(self, integration_id: Optional[int] = None, is_local: bool = True) -> tuple:
         rpc_manager = RpcMixin().rpc
@@ -111,10 +113,13 @@ class MinioClientABC(ABC):
         return files
 
     def upload_file(self, bucket: str, file_obj: bytes, file_name: str):
+        self._throughput_monitor(file_size=sys.getsizeof(file_obj))
         return self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
 
-    def download_file(self, bucket: str, file_name: str) -> bytes:
-        return self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)["Body"].read()
+    def download_file(self, bucket: str, file_name: str, project_id: int = None) -> bytes:
+        response = self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
+        self._throughput_monitor(file_size=response['ContentLength'], project_id=project_id)
+        return response["Body"].read()
 
     def remove_file(self, bucket: str, file_name: str):
         return self.s3_client.delete_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
@@ -210,6 +215,8 @@ class MinioClientABC(ABC):
                         results.append(loads(line))
                     except Exception:
                         pass
+            if 'Stats' in event:
+                self._throughput_monitor(file_size=event['Stats']['Details']['BytesScanned'])
         return results
 
     def is_file_exist(self, bucket: str, file_name: str):
@@ -221,6 +228,15 @@ class MinioClientABC(ABC):
             if obj['Key'] == file_name:
                 return True
         return False
+    
+    def _throughput_monitor(self, file_size: int, project_id: int = None):
+        payload = {
+            'project_id': self.project.id if self.project else project_id,
+            'file_size': file_size, 
+            'integration_id': self.integration_id,
+            'is_local': self.is_local
+        }
+        self.event_manager.fire_event('usage_throughput_monitor', payload)
 
 
 class MinioClientAdmin(MinioClientABC):
@@ -228,6 +244,8 @@ class MinioClientAdmin(MinioClientABC):
                  integration_id: Optional[int] = None,
                  **kwargs):
         self.project = None
+        self.integration_id = integration_id
+        self.is_local = False
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id)
         super().__init__(access_key, secret_access_key, region_name, url)
 
@@ -253,6 +271,8 @@ class MinioClient(MinioClientABC):
                  is_local: bool = True,
                  **kwargs):
         self.project = project
+        self.integration_id = integration_id
+        self.is_local = is_local
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
                                                                                    is_local)
         super().__init__(access_key, secret_access_key, region_name, url)
