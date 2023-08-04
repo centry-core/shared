@@ -113,8 +113,10 @@ class MinioClientABC(ABC):
         return files
 
     def upload_file(self, bucket: str, file_obj: bytes, file_name: str):
+        response = self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
         self._throughput_monitor(file_size=sys.getsizeof(file_obj))
-        return self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
+        self._space_monitor()
+        return response
 
     def download_file(self, bucket: str, file_name: str, project_id: int = None) -> bytes:
         response = self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
@@ -122,9 +124,11 @@ class MinioClientABC(ABC):
         return response["Body"].read()
 
     def remove_file(self, bucket: str, file_name: str):
+        self._space_monitor()
         return self.s3_client.delete_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
 
     def remove_bucket(self, bucket: str):
+        self._space_monitor()
         for file_obj in self.list_files(bucket):
             self.remove_file(bucket, file_obj["name"])
 
@@ -237,6 +241,20 @@ class MinioClientABC(ABC):
             'is_local': self.is_local
         }
         self.event_manager.fire_event('usage_throughput_monitor', payload)
+
+    def _space_monitor(self):
+        used_space = 0
+        buckets = self.list_bucket()
+        for bucket in buckets:
+            bucket_size = self.get_bucket_size(bucket)
+            used_space += bucket_size
+        payload = {
+            'project_id': self.project.id if self.project else None,
+            'used_space': used_space, 
+            'integration_id': self.integration_id,
+            'is_local': self.is_local
+        }
+        self.event_manager.fire_event('usage_space_monitor', payload)
 
 
 class MinioClientAdmin(MinioClientABC):
