@@ -41,12 +41,14 @@ class LokiLogFetcher:
         :return: string url for loki api
         '''
         if external:
-            if not vault_client:
-                vault_client = VaultClient(project=project_or_id)
-            secrets: dict = vault_client.get_all_secrets()
-            loki_host: str = secrets['loki_host'].rstrip('/')
-            loki_port: str = secrets['loki_port']
-            return f'{loki_host}:{loki_port}/loki{api_path}'
+            # we make this change to get wss url through traefik, not by host:port
+            return f'{c.APP_HOST}/loki{api_path}'
+            # if not vault_client:
+            #     vault_client = VaultClient(project=project_or_id)
+            # secrets: dict = vault_client.get_all_secrets()
+            # loki_host: str = secrets['loki_host'].rstrip('/')
+            # loki_port: str = secrets['loki_port']
+            # return f'{loki_host}:{loki_port}/loki{api_path}'
         else:
             return f'{c.LOKI_HOST_INTERNAL}:{c.LOKI_PORT}/loki{api_path}'
 
