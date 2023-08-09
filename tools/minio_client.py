@@ -11,25 +11,7 @@ from pylon.core.tools import log
 from .rpc_tools import RpcMixin, EventManagerMixin
 
 from tools import config as c
-
-
-def space_monitor(f):
-    def wrapper(*args, **kwargs):
-        client = args[0]
-        bucket = kwargs['bucket'] if kwargs.get('bucket') else args[1]
-        size_before = client.get_bucket_size(bucket)
-        result = f(*args, **kwargs)
-        size_after = client.get_bucket_size(bucket)
-        payload = {
-            'project_id': client.project.id if client.project else None,
-            'current_delta': size_after - size_before, 
-            'integration_id': client.integration_id,
-            'is_local': client.is_local
-        }
-        client.event_manager.fire_event('usage_space_monitor', payload)
-        return result
-    return wrapper
-        
+from .minio_tools import space_monitor, throughput_monitor
 
 
 class MinioClientABC(ABC):
@@ -136,13 +118,13 @@ class MinioClientABC(ABC):
     @space_monitor
     def upload_file(self, bucket: str, file_obj: bytes, file_name: str):
         response = self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
-        self._throughput_monitor(file_size=sys.getsizeof(file_obj))
+        throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
         # self._space_monitor()
         return response
 
     def download_file(self, bucket: str, file_name: str, project_id: int = None) -> bytes:
         response = self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
-        self._throughput_monitor(file_size=response['ContentLength'], project_id=project_id)
+        throughput_monitor(client=self, file_size=response['ContentLength'], project_id=project_id)
         return response["Body"].read()
 
     @space_monitor
@@ -243,7 +225,7 @@ class MinioClientABC(ABC):
                     except Exception:
                         pass
             if 'Stats' in event:
-                self._throughput_monitor(file_size=event['Stats']['Details']['BytesScanned'])
+                throughput_monitor(client=self, file_size=event['Stats']['Details']['BytesScanned'])
         return results
 
     def is_file_exist(self, bucket: str, file_name: str):
@@ -255,29 +237,6 @@ class MinioClientABC(ABC):
             if obj['Key'] == file_name:
                 return True
         return False
-    
-    def _throughput_monitor(self, file_size: int, project_id: int = None):
-        payload = {
-            'project_id': self.project.id if self.project else project_id,
-            'file_size': file_size, 
-            'integration_id': self.integration_id,
-            'is_local': self.is_local
-        }
-        self.event_manager.fire_event('usage_throughput_monitor', payload)
-
-    # def _space_monitor(self):
-    #     used_space = 0
-    #     buckets = self.list_bucket()
-    #     for bucket in buckets:
-    #         bucket_size = self.get_bucket_size(bucket)
-    #         used_space += bucket_size
-    #     payload = {
-    #         'project_id': self.project.id if self.project else None,
-    #         'used_space': used_space, 
-    #         'integration_id': self.integration_id,
-    #         'is_local': self.is_local
-    #     }
-    #     self.event_manager.fire_event('usage_space_monitor', payload)
 
 
 class MinioClientAdmin(MinioClientABC):
