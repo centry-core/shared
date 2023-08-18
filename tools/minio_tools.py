@@ -1,11 +1,16 @@
+from functools import wraps
+from pylon.core.tools import log
+
+
 def space_monitor(f):
     '''Decorator to calculate delta when a file is uploaded or removed from a bucket.
        Usage plagin uses it to check max storage space.
     '''
+    @wraps(f)
     def wrapper(*args, **kwargs):
         client = args[0]
-        bucket = kwargs['bucket'] if kwargs.get('bucket') else args[1]
-        filename = kwargs['filename'] if kwargs.get('filename') else args[-1]
+        bucket = kwargs.get('bucket') or args[1]
+        filename = kwargs.get('filename') or args[-1]
         size_before = client.get_file_size(bucket, filename)
         result = f(*args, **kwargs)
         size_after = client.get_file_size(bucket, filename)
