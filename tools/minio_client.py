@@ -11,6 +11,7 @@ from pylon.core.tools import log
 from .rpc_tools import RpcMixin, EventManagerMixin
 
 from tools import config as c
+from .minio_tools import space_monitor, throughput_monitor
 
 
 class MinioClientABC(ABC):
@@ -46,6 +47,8 @@ class MinioClientABC(ABC):
         except Empty:
             settings = None
         if settings:
+            self.integration_id = settings['integration_id']
+            self.is_local = settings['is_local']
             return (
                 settings['access_key'],
                 settings['secret_access_key'],
@@ -112,19 +115,25 @@ class MinioClientABC(ABC):
             files.extend(self.list_files(bucket, next_continuation_token=continuation_token))
         return files
 
+    @space_monitor
     def upload_file(self, bucket: str, file_obj: bytes, file_name: str):
-        self._throughput_monitor(file_size=sys.getsizeof(file_obj))
-        return self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
+        response = self.s3_client.put_object(Key=file_name, Bucket=self.format_bucket_name(bucket), Body=file_obj)
+        throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
+        # self._space_monitor()
+        return response
 
     def download_file(self, bucket: str, file_name: str, project_id: int = None) -> bytes:
         response = self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
-        self._throughput_monitor(file_size=response['ContentLength'], project_id=project_id)
+        throughput_monitor(client=self, file_size=response['ContentLength'], project_id=project_id)
         return response["Body"].read()
 
+    @space_monitor
     def remove_file(self, bucket: str, file_name: str):
+        # self._space_monitor()
         return self.s3_client.delete_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
 
     def remove_bucket(self, bucket: str):
+        # self._space_monitor()
         for file_obj in self.list_files(bucket):
             self.remove_file(bucket, file_obj["name"])
 
@@ -216,7 +225,7 @@ class MinioClientABC(ABC):
                     except Exception:
                         pass
             if 'Stats' in event:
-                self._throughput_monitor(file_size=event['Stats']['Details']['BytesScanned'])
+                throughput_monitor(client=self, file_size=event['Stats']['Details']['BytesScanned'])
         return results
 
     def is_file_exist(self, bucket: str, file_name: str):
@@ -228,15 +237,6 @@ class MinioClientABC(ABC):
             if obj['Key'] == file_name:
                 return True
         return False
-    
-    def _throughput_monitor(self, file_size: int, project_id: int = None):
-        payload = {
-            'project_id': self.project.id if self.project else project_id,
-            'file_size': file_size, 
-            'integration_id': self.integration_id,
-            'is_local': self.is_local
-        }
-        self.event_manager.fire_event('usage_throughput_monitor', payload)
 
 
 class MinioClientAdmin(MinioClientABC):
@@ -244,8 +244,8 @@ class MinioClientAdmin(MinioClientABC):
                  integration_id: Optional[int] = None,
                  **kwargs):
         self.project = None
-        self.integration_id = integration_id
-        self.is_local = False
+        # self.integration_id = integration_id
+        # self.is_local = False
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id)
         super().__init__(access_key, secret_access_key, region_name, url)
 
@@ -271,8 +271,8 @@ class MinioClient(MinioClientABC):
                  is_local: bool = True,
                  **kwargs):
         self.project = project
-        self.integration_id = integration_id
-        self.is_local = is_local
+        # self.integration_id = integration_id
+        # self.is_local = is_local
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
                                                                                    is_local)
         super().__init__(access_key, secret_access_key, region_name, url)

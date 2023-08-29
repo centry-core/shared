@@ -12,18 +12,23 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 import operator
+import time
+from datetime import datetime
 from json import loads
 from typing import Union, Optional, Callable, Tuple
+from functools import wraps
 
 from pylon.core.tools import log
 from sqlalchemy import and_, SQLColumnExpression
 from flask_restful import Resource, abort
+from flask import request, after_this_request
+from werkzeug.utils import secure_filename
 
 from .minio_client import MinioClient, MinioClientAdmin
 from .rpc_tools import RpcMixin
 
 from tools import config as c
-
+from pylon.core.tools.event import EventManager
 
 def prepare_filter(
         project_id: Optional[int], args: dict, data_model,
@@ -212,3 +217,35 @@ def build_api_url(
     if trailing_slash:
         url += '/'
     return url
+
+
+def endpoint_metrics(function):
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        from tools import auth, rpc_tools
+        start_time, date_ = time.perf_counter(), datetime.now()
+        payload = {
+            'project_id': request.view_args.get('project_id'),
+            'mode': request.view_args.get('mode'),
+            'url': request.base_url,
+            'endpoint': request.endpoint,
+            'method': request.method,
+            'user': auth.current_user().get('email'),
+            'date': date_,
+            'view_args': request.view_args,
+            'query_params': request.args.to_dict(),
+            'json': request.json if request.content_type == 'application/json' else None,
+        }
+        if request.files:
+            payload['files'] = {k: secure_filename(v.filename) for k, v in request.files.to_dict().items()}
+        def modified_function(*args, **kwargs):
+            @after_this_request
+            def send_metrics(response):
+                payload['run_time'] = time.perf_counter() - start_time
+                payload['status_code'] = response.status_code
+                rpc_tools.EventManagerMixin().event_manager.fire_event('usage_api_monitor', payload)
+                return response
+            return function(*args, **kwargs)
+        response = modified_function(*args, **kwargs)
+        return response
+    return wrapper
