@@ -14,7 +14,7 @@ from tools import config as c
 from .minio_tools import space_monitor, throughput_monitor
 
 
-class MinioClientABC(ABC):
+class MinioClientABC(ABC, EventManagerMixin):
     PROJECT_SECRET_KEY: str = "minio_aws_access"
     TASKS_BUCKET: str = "tasks"
     project = None
@@ -24,6 +24,8 @@ class MinioClientABC(ABC):
                  aws_secret_access_key: str = c.MINIO_SECRET,
                  region_name: str = c.MINIO_REGION,
                  endpoint_url: str = c.MINIO_URL,
+                 integration_id: Optional[str] = None,
+                 is_local: bool = False,
                  **kwargs
                  ):
         self.s3_client = boto3.client(
@@ -33,7 +35,9 @@ class MinioClientABC(ABC):
             config=Config(signature_version="s3v4"),
             region_name=region_name
         )
-        self.event_manager = EventManagerMixin().event_manager
+        # self.event_manager = EventManagerMixin().event_manager
+        self.integration_id = integration_id
+        self.is_local = is_local
 
     def extract_access_data(self, integration_id: Optional[int] = None, is_local: bool = True) -> tuple:
         rpc_manager = RpcMixin().rpc
@@ -47,8 +51,8 @@ class MinioClientABC(ABC):
         except Empty:
             settings = None
         if settings:
-            self.integration_id = settings['integration_id']
-            self.is_local = settings['is_local']
+            # self.integration_id = settings['integration_id']
+            # self.is_local = settings['is_local']
             return (
                 settings['access_key'],
                 settings['secret_access_key'],
@@ -275,7 +279,11 @@ class MinioClient(MinioClientABC):
         # self.is_local = is_local
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
                                                                                    is_local)
-        super().__init__(access_key, secret_access_key, region_name, url)
+        super().__init__(
+            access_key, secret_access_key, region_name, url,
+            integration_id=integration_id,
+            is_local=is_local
+        )
 
     @property
     def bucket_prefix(self) -> str:
