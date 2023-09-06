@@ -24,8 +24,6 @@ class MinioClientABC(ABC, EventManagerMixin):
                  aws_secret_access_key: str = c.MINIO_SECRET,
                  region_name: str = c.MINIO_REGION,
                  endpoint_url: str = c.MINIO_URL,
-                 integration_id: Optional[str] = None,
-                 is_local: bool = False,
                  **kwargs
                  ):
         self.s3_client = boto3.client(
@@ -36,8 +34,6 @@ class MinioClientABC(ABC, EventManagerMixin):
             region_name=region_name
         )
         # self.event_manager = EventManagerMixin().event_manager
-        self.integration_id = integration_id
-        self.is_local = is_local
 
     def extract_access_data(self, integration_id: Optional[int] = None, is_local: bool = True) -> tuple:
         rpc_manager = RpcMixin().rpc
@@ -51,8 +47,8 @@ class MinioClientABC(ABC, EventManagerMixin):
         except Empty:
             settings = None
         if settings:
-            # self.integration_id = settings['integration_id']
-            # self.is_local = settings['is_local']
+            self.integration_id = settings['integration_id']
+            self.is_local = settings['is_local']
             return (
                 settings['access_key'],
                 settings['secret_access_key'],
@@ -248,8 +244,8 @@ class MinioClientAdmin(MinioClientABC):
                  integration_id: Optional[int] = None,
                  **kwargs):
         self.project = None
-        # self.integration_id = integration_id
-        # self.is_local = False
+        self.integration_id = integration_id
+        self.is_local = False
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id)
         super().__init__(access_key, secret_access_key, region_name, url)
 
@@ -275,8 +271,8 @@ class MinioClient(MinioClientABC):
                  is_local: bool = True,
                  **kwargs):
         self.project = project
-        # self.integration_id = integration_id
-        # self.is_local = is_local
+        self.integration_id = integration_id
+        self.is_local = is_local
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
                                                                                    is_local)
         super().__init__(
