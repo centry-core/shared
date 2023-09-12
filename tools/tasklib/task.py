@@ -36,9 +36,9 @@ def register_task(rpc_name: str, func_obj: FunctionType, meta: dict):
 
 
 def list_tasks_meta():
-    return {
+    return [
         entry.meta for entry in _tasks_registry.values() 
-    }
+    ]
 
 def get_tasks_to_rpc_mappings():
     return _reverse_task_registy
