@@ -42,10 +42,9 @@ class Module(module.ModuleModel):
         # from .tools.config import Config
         # self.descriptor.register_tool('config', Config())
 
-        from .tools import rpc_tools, api_tools, tasklib
+        from .tools import rpc_tools, api_tools
         self.descriptor.register_tool('rpc_tools', rpc_tools)
         self.descriptor.register_tool('api_tools', api_tools)
-        self.descriptor.register_tool('tasklib', tasklib)
 
         from .tools.loki_tools import LokiLogFetcher
         self.descriptor.register_tool('LokiLogFetcher', LokiLogFetcher)
@@ -76,6 +75,9 @@ class Module(module.ModuleModel):
 
         from .tools import data_tools
         self.descriptor.register_tool('data_tools', data_tools)
+
+        from .tools.flow_tools import FlowNodes
+        self.descriptor.register_tool('flow_tools', FlowNodes(self))
 
         self.init_filters()
 
