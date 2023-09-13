@@ -1,5 +1,55 @@
+import re
+from functools import wraps
 from typing import Optional
 from pylon.core.tools import log
+
+from pydantic import ValidationError
+
+
+def handle_exceptions(fn):
+    def _is_special_value(value):
+        if not isinstance(value, str):
+            return False
+
+        variable_pattern = r"([a-zA-Z0-9_]+)"
+        variables_pattern = r"{{variables\." + variable_pattern + r"}}"
+        prev_pattern = r"{{nodes\['" + variable_pattern + r"'\]\.?" + variable_pattern + r"?}}"
+
+        if re.fullmatch(variables_pattern, value) or \
+                re.fullmatch(prev_pattern, value):
+            return True
+
+        return False
+
+    @wraps(fn)
+    def decorated(**kwargs):
+        try:
+            fn(**kwargs)
+            return {"ok": True}
+        except ValidationError as e:
+            valid_erros = []
+            for error in e.errors():
+                log.info(f"Flow validation error: {error}")
+                if error['type'] == "value_error.missing" or "__root__" in error['loc']:
+                    valid_erros.append(error)
+                    continue
+
+                invalid_value = {**kwargs}
+                for loc in error["loc"]:
+                    invalid_value = invalid_value[loc]
+
+                # check for special values
+                if not _is_special_value(invalid_value):
+                    valid_erros.append(error)
+
+            if valid_erros:
+                return {"ok": False, "errors": valid_erros}
+            return {"ok": True}
+        except Exception as e:
+            # log.error(e)
+            return {"ok": False, "error": str(e)}
+
+    return decorated
 
 
 class FlowNodes:
@@ -40,14 +90,13 @@ class FlowNodes:
         }
         structure.update(kwargs)
 
-        # todo: remove that
-        structure['rpc_name_tmp'] = self.get_rpc_name(uid)
-        log.info('Registering flow %s', structure)
+        # structure['rpc_name'] = self.get_rpc_name(uid)
+        log.info('Registering flow <%s>', structure)
 
         self._registry[uid] = structure
 
     def register_validator(self, flow_uid: str) -> None:
-        log.info('Registering flow validator for flow %s', flow_uid)
+        log.info('Registering flow validator: <%s> for flow <%s>', self.get_validator_rpc_name(flow_uid), flow_uid)
         try:
             if self._registry[flow_uid]['validation_rpc']:
                 log.critical(
@@ -87,7 +136,10 @@ class FlowNodes:
         )
 
         def wrapper(func):
-            self.module.context.rpc_manager.register_function(self.get_rpc_name(uid), func)
+            self.module.context.rpc_manager.register_function(
+                func,
+                name=self.get_rpc_name(uid)
+            )
             return func
 
         return wrapper
@@ -96,7 +148,10 @@ class FlowNodes:
         self.register_validator(flow_uid)
 
         def wrapper(func):
-            self.module.context.rpc_manager.register_function(self.get_validator_rpc_name(flow_uid), func)
+            self.module.context.rpc_manager.register_function(
+                handle_exceptions(func),
+                name=self.get_validator_rpc_name(flow_uid)
+            )
             return func
 
         return wrapper
