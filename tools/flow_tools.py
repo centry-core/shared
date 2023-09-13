@@ -76,6 +76,7 @@ class FlowNodes:
             inputs: int = 1,
             outputs: int = 1,
             validation_rpc: Optional[str] = None,
+            weight: int = 50,
             **kwargs
     ) -> None:
         structure = {
@@ -86,7 +87,8 @@ class FlowNodes:
             'icon_fa': icon_fa,
             'inputs': inputs,
             'outputs': outputs,
-            'validation_rpc': validation_rpc
+            'validation_rpc': validation_rpc,
+            'weight': weight
         }
         structure.update(kwargs)
 
@@ -121,6 +123,7 @@ class FlowNodes:
             inputs: int = 1,
             outputs: int = 1,
             validation_rpc: Optional[str] = None,
+            weight: int = 50,
             **kwargs
     ):
         self.register(
@@ -132,6 +135,7 @@ class FlowNodes:
             inputs=inputs,
             outputs=outputs,
             validation_rpc=validation_rpc,
+            weight=weight,
             **kwargs
         )
 
