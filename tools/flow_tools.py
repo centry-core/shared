@@ -11,12 +11,8 @@ def handle_exceptions(fn):
         if not isinstance(value, str):
             return False
 
-        variable_pattern = r"([a-zA-Z0-9_]+)"
-        variables_pattern = r"{{variables\." + variable_pattern + r"}}"
-        prev_pattern = r"{{nodes\['" + variable_pattern + r"'\]\.?" + variable_pattern + r"?}}"
-
-        if re.fullmatch(variables_pattern, value) or \
-                re.fullmatch(prev_pattern, value):
+        variable_pattern = r"{{([a-zA-Z0-9_]+)}}"
+        if re.fullmatch(variable_pattern, value):
             return True
 
         return False
