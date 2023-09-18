@@ -11,7 +11,7 @@ def handle_exceptions(fn):
         if not isinstance(value, str):
             return False
 
-        variable_pattern = r"{{([a-zA-Z0-9_]+)}}"
+        variable_pattern = r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*"
         if re.fullmatch(variable_pattern, value):
             return True
 
