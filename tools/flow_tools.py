@@ -47,6 +47,16 @@ def handle_exceptions(fn):
 
     return decorated
 
+def handle_pre_run_exceptions(fn):
+    @wraps(fn)
+    def decorated(*args, **kwargs):
+        try:
+            clean_data = fn(*args, **kwargs)
+            return {'ok': True, "result": clean_data.dict()}
+        except ValidationError as e:
+            return {'ok': False, 'error': e.errors()}
+    return decorated
+
 
 class FlowNodes:
     _registry = {}
@@ -61,6 +71,10 @@ class FlowNodes:
     @staticmethod
     def get_validator_rpc_name(uid: str) -> str:
         return f'flows_node_validator_{uid}'
+    
+    @staticmethod
+    def get_pre_run_validator_rpc_name(uid: str) -> str:
+        return f"flows_node_pre_run_validator_{uid}"
 
     def register(
             self,
@@ -151,6 +165,11 @@ class FlowNodes:
             self.module.context.rpc_manager.register_function(
                 handle_exceptions(func),
                 name=self.get_validator_rpc_name(flow_uid)
+            )
+
+            self.module.context.rpc_manager.register_function(
+                handle_pre_run_exceptions(func),
+                name=self.get_pre_run_validator_rpc_name(flow_uid)
             )
             return func
 
