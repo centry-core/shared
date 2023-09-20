@@ -1,64 +1,70 @@
 import re
 from functools import wraps
-from typing import Optional
+from typing import Optional, Any, Callable
 from pylon.core.tools import log
 
 from pydantic import ValidationError
 
 
-def handle_exceptions(fn):
-    def _is_special_value(value):
-        if not isinstance(value, str):
-            return False
+# variable_pattern = re.compile(r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*")
+#
+# def _is_special_value(value: Any) -> bool:
+#     if isinstance(value, str):
+#         if re.fullmatch(variable_pattern, value):
+#             return True
+#     return False
 
-        variable_pattern = r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*"
-        if re.fullmatch(variable_pattern, value):
-            return True
 
-        return False
+def handle_exceptions(fn: Callable):
 
     @wraps(fn)
     def decorated(**kwargs):
         try:
-            fn(**kwargs)
-            return {"ok": True}
+            result = fn(**kwargs)
+            return {"ok": True, 'result': result}
         except ValidationError as e:
-            valid_erros = []
+            valid_errors = []
             for error in e.errors():
                 log.info(f"Flow validation error: {error}")
                 if error['type'] == "value_error.missing" or "__root__" in error['loc']:
-                    valid_erros.append(error)
+                    valid_errors.append(error)
                     continue
 
                 invalid_value = {**kwargs}
                 for loc in error["loc"]:
                     invalid_value = invalid_value[loc]
 
-                # check for special values
-                if not _is_special_value(invalid_value):
-                    valid_erros.append(error)
+                # # check for special values
+                # if not _is_special_value(invalid_value):
+                #     valid_errors.append(error)
+                valid_errors.append(error)
 
-            if valid_erros:
-                return {"ok": False, "errors": valid_erros}
-            return {"ok": True}
+            # if valid_errors:
+            return {"ok": False, "errors": valid_errors}
+            # return {"ok": True} # todo: handle this sh*t
         except Exception as e:
             # log.error(e)
             return {"ok": False, "error": str(e)}
 
     return decorated
 
-def handle_pre_run_exceptions(fn):
-    @wraps(fn)
-    def decorated(*args, **kwargs):
-        try:
-            clean_data = fn(*args, **kwargs)
-            return {'ok': True, "result": clean_data.dict()}
-        except ValidationError as e:
-            return {'ok': False, 'error': e.errors()}
-    return decorated
+
+# def handle_pre_run_exceptions(fn):
+#     @wraps(fn)
+#     def decorated(*args, **kwargs):
+#         try:
+#             clean_data = fn(*args, **kwargs)
+#             return {'ok': True, "result": clean_data.dict()}
+#         except ValidationError as e:
+#             return {'ok': False, 'error': e.errors()}
+#
+#     return decorated
 
 
 class FlowNodes:
+    # variable_pattern = variable_pattern
+    variable_pattern = re.compile(r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*")
+
     _registry = {}
 
     def __init__(self, module):
@@ -71,10 +77,10 @@ class FlowNodes:
     @staticmethod
     def get_validator_rpc_name(uid: str) -> str:
         return f'flows_node_validator_{uid}'
-    
-    @staticmethod
-    def get_pre_run_validator_rpc_name(uid: str) -> str:
-        return f"flows_node_pre_run_validator_{uid}"
+
+    # @staticmethod
+    # def get_pre_run_validator_rpc_name(uid: str) -> str:
+    #     return f"flows_node_pre_run_validator_{uid}"
 
     def register(
             self,
@@ -167,10 +173,10 @@ class FlowNodes:
                 name=self.get_validator_rpc_name(flow_uid)
             )
 
-            self.module.context.rpc_manager.register_function(
-                handle_pre_run_exceptions(func),
-                name=self.get_pre_run_validator_rpc_name(flow_uid)
-            )
+            # self.module.context.rpc_manager.register_function(
+            #     handle_pre_run_exceptions(func),
+            #     name=self.get_pre_run_validator_rpc_name(flow_uid)
+            # )
             return func
 
         return wrapper
