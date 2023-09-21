@@ -234,7 +234,7 @@ def endpoint_metrics(function):
             'date': date_,
             'view_args': request.view_args,
             'query_params': request.args.to_dict(),
-            'json': dict(request.json) if request.content_type == 'application/json' else None,
+            'json': dict(request.json) if request.content_type == 'application/json' else {},
         }
         if request.files:
             payload['files'] = {k: secure_filename(v.filename) for k, v in request.files.to_dict().items()}
