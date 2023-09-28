@@ -76,6 +76,9 @@ class Module(module.ModuleModel):
         from .tools import data_tools
         self.descriptor.register_tool('data_tools', data_tools)
 
+        from .tools.flow_tools import FlowNodes
+        self.descriptor.register_tool('flow_tools', FlowNodes(self))
+
         self.init_filters()
 
         self.descriptor.register_tool('shared', self)
