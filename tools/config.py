@@ -45,6 +45,8 @@ class Config(metaclass=SingletonABC):
     RABBIT_PASSWORD = environ['RABBIT_PASSWORD']
     RABBIT_PORT = environ.get('RABBIT_PORT', 5672)
     RABBIT_QUEUE_NAME = environ.get('RABBIT_QUEUE_NAME', 'default')
+    RABBIT_USE_SSL = environ.get("RABBIT_USE_SSL", "").lower() in ["true", "yes"]
+    RABBIT_SSL_VERIFY = environ.get("RABBIT_SSL_VERIFY", "").lower() in ["true", "yes"]
 
     # GF_API_KEY = environ.get('GF_API_KEY', '')
     INFLUX_PASSWORD = environ.get('INFLUX_PASSWORD', '')

@@ -105,21 +105,21 @@ def upload_file_base(bucket: str, data: bytes, file_name: str, client, create_if
     client.upload_file(bucket, data, file_name)
 
 
-def upload_file(bucket: str, 
-                f, 
-                project: Union[str, int, 'Project'], 
-                integration_id: Optional[int] = None, 
+def upload_file(bucket: str,
+                f,
+                project: Union[str, int, 'Project'],
+                integration_id: Optional[int] = None,
                 is_local: bool = True,
-                create_if_not_exists: bool = True, 
+                create_if_not_exists: bool = True,
                 **kwargs) -> None:
     # avoid using this, try MinioClient instead
     if isinstance(project, (str, int)):
-        mc = MinioClient.from_project_id(project_id=project, 
-                                         integration_id=integration_id, 
+        mc = MinioClient.from_project_id(project_id=project,
+                                         integration_id=integration_id,
                                          is_local=is_local)
     else:
-        mc = MinioClient(project=project, 
-                         integration_id=integration_id, 
+        mc = MinioClient(project=project,
+                         integration_id=integration_id,
                          is_local=is_local)
 
     upload_file_base(
@@ -135,10 +135,10 @@ def upload_file(bucket: str,
         pass
 
 
-def upload_file_admin(bucket: str, 
-                      f, 
-                      integration_id: Optional[int] = None, 
-                      create_if_not_exists: bool = True, 
+def upload_file_admin(bucket: str,
+                      f,
+                      integration_id: Optional[int] = None,
+                      create_if_not_exists: bool = True,
                       **kwargs) -> None:
     # avoid using this, try MinioClient instead
     upload_file_base(
@@ -227,14 +227,14 @@ def endpoint_metrics(function):
         payload = {
             'project_id': request.view_args.get('project_id'),
             'mode': request.view_args.get('mode'),
-            'url': request.base_url,
             'endpoint': request.endpoint,
             'method': request.method,
             'user': auth.current_user().get('email'),
+            'display_name': request.headers.get('X-CARRIER-UID'),
             'date': date_,
             'view_args': request.view_args,
             'query_params': request.args.to_dict(),
-            'json': request.json if request.content_type == 'application/json' else None,
+            'json': dict(request.json) if request.content_type == 'application/json' else {},
         }
         if request.files:
             payload['files'] = {k: secure_filename(v.filename) for k, v in request.files.to_dict().items()}
@@ -243,6 +243,7 @@ def endpoint_metrics(function):
             def send_metrics(response):
                 payload['run_time'] = time.perf_counter() - start_time
                 payload['status_code'] = response.status_code
+                payload['response'] = response.get_data(as_text=True)
                 rpc_tools.EventManagerMixin().event_manager.fire_event('usage_api_monitor', payload)
                 return response
             return function(*args, **kwargs)
