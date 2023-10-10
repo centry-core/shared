@@ -62,8 +62,9 @@ def handle_exceptions(fn: Callable):
 
 
 class FlowNodes:
+    PLACEHOLDER_VARIABLE_REGEX = r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*"
     # variable_pattern = variable_pattern
-    variable_pattern = re.compile(r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*")
+    variable_pattern = re.compile(PLACEHOLDER_VARIABLE_REGEX)
 
     _registry = {}
 
