@@ -229,7 +229,7 @@ def endpoint_metrics(function):
             'mode': request.view_args.get('mode'),
             'endpoint': request.endpoint,
             'method': request.method,
-            'user': auth.current_user().get('email'),
+            'user': auth.current_user().get("id"),
             'display_name': request.headers.get('X-CARRIER-UID'),
             'date': date_,
             'view_args': request.view_args,
