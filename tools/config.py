@@ -32,6 +32,7 @@ class Config(metaclass=SingletonABC):
     APP_IP = environ['APP_IP']
     APP_HOST = environ['APP_HOST']
     APP_SCHEME = environ.get('APP_SCHEME', 'http')
+    ALLOW_CORS = environ.get('ALLOW_CORS', False)
 
     REDIS_USER = environ.get('REDIS_USER', '')
     REDIS_PASSWORD = environ['REDIS_PASSWORD']
