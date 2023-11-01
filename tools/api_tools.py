@@ -28,6 +28,7 @@ from .minio_client import MinioClient, MinioClientAdmin
 from .rpc_tools import RpcMixin
 
 from tools import config as c
+from .db import with_project_schema_session
 from pylon.core.tools.event import EventManager
 
 def prepare_filter(
@@ -65,7 +66,8 @@ def get(project_id: Optional[int], args: dict, data_model,
         additional_filters: Optional[list] = None,
         rpc_manager: Optional[Callable] = None,
         mode: str = 'default',
-        custom_filter: Optional[SQLColumnExpression] = None
+        custom_filter: Optional[SQLColumnExpression] = None,
+        is_project_schema: bool = False
         ) -> Tuple[int, list]:
     def _calculate_limit(limit: Union[str, int], total: int):
         return total if limit == 'All' or limit == 0 else limit
@@ -81,6 +83,21 @@ def get(project_id: Optional[int], args: dict, data_model,
         filter_ = prepare_filter(project_id, args, data_model, additional_filters, rpc_manager, mode)
     else:
         filter_ = custom_filter
+
+    if is_project_schema:
+        with with_project_schema_session(project_id) as session:
+            total = session.query(data_model).order_by(sort_rule).filter(filter_).count()
+            res = session.query(data_model).filter(
+                filter_
+            ).order_by(
+                sort_rule
+            ).limit(
+                _calculate_limit(limit_, total)
+            ).offset(
+                offset_
+            ).all()
+
+        return total, res
 
     total = data_model.query.order_by(sort_rule).filter(filter_).count()
     res = data_model.query.filter(
