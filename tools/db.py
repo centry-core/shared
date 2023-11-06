@@ -5,7 +5,6 @@ from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 
 from tools import config as c
 
-
 engine = create_engine(c.DATABASE_URI, **c.DATABASE_ENGINE_OPTIONS)
 session = scoped_session(sessionmaker(bind=engine))
 Base = declarative_base()
@@ -15,40 +14,39 @@ Base.query = session.query_property(query_cls=BaseQuery)
 def get_shared_metadata():
     meta = MetaData()
     for table in Base.metadata.tables.values():
-        if table.schema != "tenant":
+        if table.schema != c.POSTGRES_TENANT_SCHEMA:
             table.tometadata(meta)
     return meta
 
 
 def get_tenant_specific_metadata():
-    meta = MetaData(schema="tenant")
+    meta = MetaData(schema=c.POSTGRES_TENANT_SCHEMA)
     for table in Base.metadata.tables.values():
-        if table.schema == "tenant":
+        if table.schema == c.POSTGRES_TENANT_SCHEMA:
             table.tometadata(meta)
     return meta
 
 
-def get_project_schema_session(project_id: int | None):
+def get_schema_translate_map(project_id: int | None) -> dict | None:
     if project_id:
         from tools import project_constants as pc
         template = pc['PROJECT_SCHEMA_TEMPLATE']
-        schema_translate_map = dict(tenant=template.format(project_id))
-    else:
-        schema_translate_map = None
+        return {
+            c.POSTGRES_TENANT_SCHEMA: template.format(project_id),
+            c.POSTGRES_SCHEMA: c.POSTGRES_SCHEMA
+        }
+    return None
 
+
+def get_project_schema_session(project_id: int | None):
+    schema_translate_map = get_schema_translate_map(project_id)
     connectable = engine.execution_options(schema_translate_map=schema_translate_map)
     return scoped_session(sessionmaker(bind=connectable))
 
 
 @contextmanager
 def with_project_schema_session(project_id: int | None):
-    if project_id:
-        from tools import project_constants as pc
-        template = pc['PROJECT_SCHEMA_TEMPLATE']
-        schema_translate_map = dict(tenant=template.format(project_id))
-    else:
-        schema_translate_map = None
-
+    schema_translate_map = get_schema_translate_map(project_id)
     connectable = engine.execution_options(schema_translate_map=schema_translate_map)
     db = None
     try:
