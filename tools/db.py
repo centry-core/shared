@@ -11,6 +11,13 @@ Base = declarative_base()
 Base.query = session.query_property(query_cls=BaseQuery)
 
 
+def get_all_metadata():
+    meta = MetaData()
+    for table in Base.metadata.tables.values():
+        table.tometadata(meta)
+    return meta
+
+
 def get_shared_metadata():
     meta = MetaData()
     for table in Base.metadata.tables.values():
@@ -33,7 +40,7 @@ def get_schema_translate_map(project_id: int | None) -> dict | None:
         template = pc['PROJECT_SCHEMA_TEMPLATE']
         return {
             c.POSTGRES_TENANT_SCHEMA: template.format(project_id),
-            c.POSTGRES_SCHEMA: c.POSTGRES_SCHEMA
+            # c.POSTGRES_SCHEMA: c.POSTGRES_SCHEMA
         }
     return None
 
