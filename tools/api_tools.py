@@ -267,3 +267,15 @@ def endpoint_metrics(function):
         response = modified_function(*args, **kwargs)
         return response
     return wrapper
+
+
+def with_modes(url_params: list[str]) -> list:
+    params = set()
+    for i in url_params:
+        if not i.startswith('<string:mode>'):
+            if i == '':
+                params.add('<string:mode>')
+            else:
+                params.add(f'<string:mode>/{i}')
+        params.add(i)
+    return list(params)
