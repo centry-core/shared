@@ -53,11 +53,12 @@ def get_project_schema_session(project_id: int | None):
 
 @contextmanager
 def with_project_schema_session(project_id: int | None):
-    schema_translate_map = get_schema_translate_map(project_id)
-    connectable = engine.execution_options(schema_translate_map=schema_translate_map)
+    # schema_translate_map = get_schema_translate_map(project_id)
+    # connectable = engine.execution_options(schema_translate_map=schema_translate_map)
     db = None
     try:
-        db = scoped_session(sessionmaker(bind=connectable))
+        db = get_project_schema_session(project_id)
+        # db = scoped_session(sessionmaker(bind=connectable))
         yield db
     finally:
         if db:
