@@ -20,6 +20,7 @@ from functools import wraps
 
 from pylon.core.tools import log
 from sqlalchemy import and_, SQLColumnExpression
+from sqlalchemy.orm import joinedload
 from flask_restful import Resource, abort
 from flask import request, after_this_request
 from werkzeug.utils import secure_filename
@@ -67,6 +68,7 @@ def get(project_id: Optional[int], args: dict, data_model,
         rpc_manager: Optional[Callable] = None,
         mode: str = 'default',
         custom_filter: Optional[SQLColumnExpression] = None,
+        joinedload_: Optional[list] = None,
         is_project_schema: bool = False
         ) -> Tuple[int, list]:
     def _calculate_limit(limit: Union[str, int], total: int):
@@ -84,11 +86,18 @@ def get(project_id: Optional[int], args: dict, data_model,
     else:
         filter_ = custom_filter
 
+    if joinedload_:
+        options_ = [joinedload(col) for col in joinedload_]
+    else:
+        options_ = []
+
     if is_project_schema:
         with with_project_schema_session(project_id) as session:
             total = session.query(data_model).order_by(sort_rule).filter(filter_).count()
             res = session.query(data_model).filter(
                 filter_
+            ).options(
+                *options_
             ).order_by(
                 sort_rule
             ).limit(
@@ -102,6 +111,8 @@ def get(project_id: Optional[int], args: dict, data_model,
     total = data_model.query.order_by(sort_rule).filter(filter_).count()
     res = data_model.query.filter(
         filter_
+    ).options(
+        *options_
     ).order_by(
         sort_rule
     ).limit(
