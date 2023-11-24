@@ -28,7 +28,6 @@ class Config(metaclass=SingletonABC):
     MAX_DOTS_ON_CHART = 100
     BACKEND_PERFORMANCE_RESULTS_RETENTION = 30  # in days
     BUCKET_RETENTION_DAYS = 7
-    PERSONAL_PROJECT_NAME = 'Project_User_{user_id}'
 
     APP_IP = environ['APP_IP']
     APP_HOST = environ['APP_HOST']
