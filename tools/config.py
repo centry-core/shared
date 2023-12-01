@@ -34,12 +34,16 @@ class Config(metaclass=SingletonABC):
     APP_SCHEME = environ.get('APP_SCHEME', 'http')
     ALLOW_CORS = environ.get('ALLOW_CORS', False)
 
+    ARBITER_RUNTIME = environ.get('ARBITER_RUNTIME', 'rabbitmq')
+    EVENT_NODE_WORKERS = int(environ.get('EVENT_NODE_WORKERS', '1'))
+
     REDIS_USER = environ.get('REDIS_USER', '')
     REDIS_PASSWORD = environ['REDIS_PASSWORD']
     REDIS_HOST = environ.get('REDIS_HOST', 'carrier-redis')
     REDIS_PORT = environ.get('REDIS_PORT', 6379)
     REDIS_DB = environ.get('REDIS_DB', 2)
     REDIS_RABBIT_DB = environ.get('REDIS_RABBIT_DB', 4)
+    REDIS_USE_SSL = environ.get("REDIS_USE_SSL", "").lower() in ["true", "yes"]
 
     RABBIT_HOST = environ.get('RABBIT_HOST', 'carrier-rabbit')
     RABBIT_USER = environ['RABBIT_USER']
