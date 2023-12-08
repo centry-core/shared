@@ -60,3 +60,7 @@ class MockEngine(metaclass=MockMeta):
 
     def set_secrets(self, *args, **kwargs):
         log.info("set_secrets(%s, %s)", args, kwargs)
+
+    @classmethod
+    def from_project(cls, project, **kwargs):
+        return cls(project=project, **kwargs)
