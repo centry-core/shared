@@ -47,18 +47,36 @@ class MockEngine(metaclass=MockMeta):
     def __delattr__(self, name):
         log.info("__delattr__(%s)", name)
 
+    def list_bucket(self, *args, **kwargs):
+        log.info("list_bucket(%s, %s)", args, kwargs)
+
+    def create_bucket(self, *args, **kwargs):
+        log.info("create_bucket(%s, %s)", args, kwargs)
+
+    def upload_file(self, *args, **kwargs):
+        log.info("upload_file(%s, %s)", args, kwargs)
+
 
 class MockAdminEngine(metaclass=MockMeta):
     """ Client mock / debug class """
 
     def __init__(self, *args, **kwargs):
-        log.info("__init__(%s, %s)", args, kwargs)
+        log.info("admin.__init__(%s, %s)", args, kwargs)
 
     def __getattr__(self, name):
-        log.info("__getattr__(%s)", name)
+        log.info("admin.__getattr__(%s)", name)
 
     def __setattr__(self, name, value):
-        log.info("__setattr__(%s)", name)
+        log.info("admin.__setattr__(%s)", name)
 
     def __delattr__(self, name):
-        log.info("__delattr__(%s)", name)
+        log.info("admin.__delattr__(%s)", name)
+
+    def list_bucket(self, *args, **kwargs):
+        log.info("admin.list_bucket(%s, %s)", args, kwargs)
+
+    def create_bucket(self, *args, **kwargs):
+        log.info("admin.create_bucket(%s, %s)", args, kwargs)
+
+    def upload_file(self, *args, **kwargs):
+        log.info("admin.upload_file(%s, %s)", args, kwargs)
