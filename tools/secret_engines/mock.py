@@ -55,7 +55,7 @@ class MockEngine(metaclass=MockMeta):
     def create_project_space(self, *args, **kwargs):
         log.info("create_project_space(%s, %s)", args, kwargs)
         result = Holder()
-        result.dict = lambda x: {}
+        result.dict = lambda *args, **kwargs: {}
         return result
 
     def get_all_secrets(self, *args, **kwargs):
