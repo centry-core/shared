@@ -24,9 +24,17 @@ class MockEngine:
     def __init__(self):
         log.info("__init__()")
 
+    def __get__(self, instance, owner=None):
+        log.info("__get__(%s)", instance)
+
+    def __set__(self, instance, value):
+        log.info("__set__(%s)", instance)
+
+    def __delete__(self, instance):
+        log.info("__delete__(%s)", instance)
+
     def __getattr__(self, name):
         log.info("__getattr__(%s)", name)
-        return None
 
     def __setattr__(self, name, value):
         log.info("__setattr__(%s)", name)
