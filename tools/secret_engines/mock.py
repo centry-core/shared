@@ -65,6 +65,20 @@ class MockEngine(metaclass=MockMeta):
     def set_secrets(self, *args, **kwargs):
         log.info("set_secrets(%s, %s)", args, kwargs)
 
+    def get_secrets(self, *args, **kwargs):
+        log.info("get_secrets(%s, %s)", args, kwargs)
+        return {}
+
+    def set_hidden_secrets(self, *args, **kwargs):
+        log.info("set_hidden_secrets(%s, %s)", args, kwargs)
+
+    def get_hidden_secrets(self, *args, **kwargs):
+        log.info("get_hidden_secrets(%s, %s)", args, kwargs)
+        return {}
+
+    def unsecret(self, value, secrets=None, *args, **kwargs):
+        return value
+
     @classmethod
     def from_project(cls, project, **kwargs):
         return cls(project=project, **kwargs)
