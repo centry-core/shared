@@ -54,8 +54,8 @@ class MockEngine(metaclass=MockMeta):
     def create_bucket(self, *args, **kwargs):
         log.info("create_bucket(%s, %s)", args, kwargs)
 
-    def upload_file(self, *args, **kwargs):
-        log.info("upload_file(%s, %s)", args, kwargs)
+    def upload_file(self, bucket, file_obj, file_name):
+        log.info("upload_file(%s, %s)", bucket, file_name)
 
 
 class MockAdminEngine(metaclass=MockMeta):
@@ -80,5 +80,5 @@ class MockAdminEngine(metaclass=MockMeta):
     def create_bucket(self, *args, **kwargs):
         log.info("admin.create_bucket(%s, %s)", args, kwargs)
 
-    def upload_file(self, *args, **kwargs):
-        log.info("admin.upload_file(%s, %s)", args, kwargs)
+    def upload_file(self, bucket, file_obj, file_name):
+        log.info("admin.upload_file(%s, %s)", bucket, file_name)
