@@ -49,6 +49,7 @@ class MockEngine(metaclass=MockMeta):
 
     def list_bucket(self, *args, **kwargs):
         log.info("list_bucket(%s, %s)", args, kwargs)
+        return []
 
     def create_bucket(self, *args, **kwargs):
         log.info("create_bucket(%s, %s)", args, kwargs)
@@ -74,6 +75,7 @@ class MockAdminEngine(metaclass=MockMeta):
 
     def list_bucket(self, *args, **kwargs):
         log.info("admin.list_bucket(%s, %s)", args, kwargs)
+        return []
 
     def create_bucket(self, *args, **kwargs):
         log.info("admin.create_bucket(%s, %s)", args, kwargs)
