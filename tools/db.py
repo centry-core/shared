@@ -1,15 +1,15 @@
 from contextlib import contextmanager
 from flask_sqlalchemy import BaseQuery
-import sqlalchemy
 from sqlalchemy import create_engine, MetaData
+from sqlalchemy.schema import CreateSchema
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 
 from tools import config as c
 
 engine = create_engine(c.DATABASE_URI, **c.DATABASE_ENGINE_OPTIONS)
-with engine.connect() as connection:  # TODO: allow to use other DBs, not only postgres
-    if not connection.dialect.has_schema(connection, c.POSTGRES_SCHEMA):
-        connection.execute(sqlalchemy.schema.CreateSchema(c.POSTGRES_SCHEMA))
+with engine.connect() as conn:
+    conn.execute(CreateSchema(c.POSTGRES_SCHEMA, if_not_exists=True))
+    conn.commit()
 #
 session = scoped_session(sessionmaker(bind=engine))
 Base = declarative_base()
