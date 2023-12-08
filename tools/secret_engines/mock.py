@@ -57,3 +57,6 @@ class MockEngine(metaclass=MockMeta):
     def get_all_secrets(self, *args, **kwargs):
         log.info("get_all_secrets(%s, %s)", args, kwargs)
         return {}
+
+    def set_secrets(self, *args, **kwargs):
+        log.info("set_secrets(%s, %s)", args, kwargs)
