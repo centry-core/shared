@@ -57,6 +57,10 @@ class MockEngine(metaclass=MockMeta):
     def upload_file(self, bucket, file_obj, file_name):
         log.info("upload_file(%s, %s)", bucket, file_name)
 
+    def list_files(self, bucket, next_continuation_token=None):
+        log.info("list_files(%s, %s)", bucket, next_continuation_token)
+        return []
+
 
 class MockAdminEngine(metaclass=MockMeta):
     """ Client mock / debug class """
@@ -82,3 +86,7 @@ class MockAdminEngine(metaclass=MockMeta):
 
     def upload_file(self, bucket, file_obj, file_name):
         log.info("admin.upload_file(%s, %s)", bucket, file_name)
+
+    def list_files(self, bucket, next_continuation_token=None):
+        log.info("admin.list_files(%s, %s)", bucket, next_continuation_token)
+        return []
