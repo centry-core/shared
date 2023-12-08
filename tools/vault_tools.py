@@ -63,7 +63,7 @@ class VaultDbModel(BaseModel):
         return cls.parse_obj(obj.unseal_json)
 
 
-class VaultClient:
+class HashiCorpVaultClient:
     approle_auth_path: str = 'carrier-approle'
     secrets_path: str = 'project-secrets'
     admin_kv_mount: str = f'kv-for-{c.VAULT_ADMINISTRATION_NAME}'
@@ -143,7 +143,7 @@ class VaultClient:
         if not self._db_data:
             vault_db = Vault.query.get(c.VAULT_DB_PK)
             if vault_db is None:
-                self._db_data = VaultClient.init_vault()
+                self._db_data = HashiCorpVaultClient.init_vault()
             else:
                 self._db_data = VaultDbModel.from_db(vault_db)
         return self._db_data
@@ -156,7 +156,7 @@ class VaultClient:
             client.__root_token = self.db_data.root_token
             if self.auth:
                 try:
-                    client.auth.approle.login(**self.auth.dict(), use_token=True, mount_point=VaultClient.approle_auth_path)
+                    client.auth.approle.login(**self.auth.dict(), use_token=True, mount_point=HashiCorpVaultClient.approle_auth_path)
                 except (NotImplementedError, InvalidRequest):  # workaround to handle outdated pylon
                     log.warning('Vault approle login failed. Vault will be using root token %s')
                     ...
@@ -197,7 +197,7 @@ class VaultClient:
         try:
             client.sys.enable_auth_method(
                 method_type="approle",
-                path=VaultClient.approle_auth_path,
+                path=HashiCorpVaultClient.approle_auth_path,
             )
         except InvalidRequest as e:
             ...
@@ -205,7 +205,7 @@ class VaultClient:
 
     def with_admin_token(func):
         @wraps(func)
-        def wrapper(self: 'VaultClient', *args, **kwargs):
+        def wrapper(self: 'HashiCorpVaultClient', *args, **kwargs):
             stashed_token = self.client.token
             self.client.token = self.client.__root_token
             result = func(self, *args, **kwargs)
@@ -424,3 +424,15 @@ class VaultClient:
             return self._unsecret_json(value, secrets)
         else:
             return value
+
+#
+# Select active (compat) client for secrets
+#
+
+if c.SECRETS_ENGINE == "vault":
+    VaultClient = HashiCorpVaultClient
+elif c.SECRETS_ENGINE == "mock":
+    from .secret_engines.mock import MockEngine
+    VaultClient = MockEngine
+else:
+    raise RuntimeError(f"Unknown secrets engine: {c.SECRETS_ENGINE}")

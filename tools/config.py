@@ -97,6 +97,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("MINIO_SECRET", "str", ("MINIO_SECRET_KEY")),
                 ("MINIO_REGION", "str", "us-east-1"),
                 # Used in carrier-io/shared · tools/vault_tools.py
+                ("SECRETS_ENGINE", "str", "vault"),
                 ("VAULT_URL", "str", "http://carrier-vault:8200"),
                 ("VAULT_DB_PK", "int", 1),
                 ("VAULT_ADMINISTRATION_NAME", "str", ("ADMINISTRATION_MODE")),
