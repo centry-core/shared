@@ -15,23 +15,27 @@
 
 """ Secret engine impl """
 
-from pylon.core.tools import log
+from pylon.core.tools import log  # pylint: disable=E0401
 
 
-class MockEngine:
+class MockMeta(type):
+    """ Client meta class """
+
+    def __getattr__(cls, name):
+        log.info("cls.__getattr__(%s)", name)
+
+    def __setattr__(cls, name, value):
+        log.info("cls.__setattr__(%s)", name)
+
+    def __delattr__(cls, name):
+        log.info("cls.__delattr__(%s)", name)
+
+
+class MockEngine(metaclass=MockMeta):
     """ Client mock / debug class """
 
     def __init__(self):
         log.info("__init__()")
-
-    def __get__(self, instance, owner=None):
-        log.info("__get__(%s)", instance)
-
-    def __set__(self, instance, value):
-        log.info("__set__(%s)", instance)
-
-    def __delete__(self, instance):
-        log.info("__delete__(%s)", instance)
 
     def __getattr__(self, name):
         log.info("__getattr__(%s)", name)
