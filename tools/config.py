@@ -74,7 +74,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("RABBIT_PORT", "int", 5672),
                 ("RABBIT_USER", "str", ""),
                 ("RABBIT_PASSWORD", "str", ""),
-                ("RABBIT_ADMIN_URL", "str", None),
+                ("RABBIT_ADMIN_URL", "str", "http://carrier-rabbit:15672"),
                 # Used in carrier-io/tasks · tools/TaskManager.py
                 ("RABBIT_QUEUE_NAME", "str", "default"),
                 ("RABBIT_USE_SSL", "bool", False),
