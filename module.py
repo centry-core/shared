@@ -71,7 +71,10 @@ class Module(module.ModuleModel):
 
         from .tools.vault_tools import VaultClient
         self.descriptor.register_tool('VaultClient', VaultClient)
-        VaultClient.init_vault()  # won't do anything if vault is not available
+        try:
+            VaultClient.init_vault()  # won't do anything if vault is not available
+        except:  # pylint: disable=W0702
+            log.exception("Vault failed to init, secrets WONT WORK")
 
         from .tools import data_tools
         self.descriptor.register_tool('data_tools', data_tools)
