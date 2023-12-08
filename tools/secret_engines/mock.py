@@ -1,3 +1,4 @@
+# pylint: disable=C0116
 #
 #   Copyright 2023 getcarrier.io
 #
@@ -34,8 +35,8 @@ class MockMeta(type):
 class MockEngine(metaclass=MockMeta):
     """ Client mock / debug class """
 
-    def __init__(self):
-        log.info("__init__()")
+    def __init__(self, *args, **kwargs):
+        log.info("__init__(%s, %s)", args, kwargs)
 
     def __getattr__(self, name):
         log.info("__getattr__(%s)", name)
@@ -45,3 +46,14 @@ class MockEngine(metaclass=MockMeta):
 
     def __delattr__(self, name):
         log.info("__delattr__(%s)", name)
+
+    @staticmethod
+    def init_vault(*args, **kwargs):
+        log.info("init_vault(%s, %s)", args, kwargs)
+
+    def create_project_space(self, *args, **kwargs):
+        log.info("create_project_space(%s, %s)", args, kwargs)
+
+    def get_all_secrets(self, *args, **kwargs):
+        log.info("get_all_secrets(%s, %s)", args, kwargs)
+        return {}
