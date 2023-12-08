@@ -90,7 +90,6 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("LOKI_HOST_INTERNAL", "str", "http://carrier-loki"),
                 ("LOKI_PORT", "int", 3100),
                 # Used in carrier-io/s3_integration · module.py and shared
-                ("STORAGE_ENGINE", "str", "s3"),
                 ("MINIO_URL", "str", "http://carrier-minio:9000"),
                 ("MINIO_ACCESS_KEY", "str", ""),
                 ("MINIO_ACCESS", "str", ("MINIO_ACCESS_KEY")),
@@ -98,7 +97,6 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("MINIO_SECRET", "str", ("MINIO_SECRET_KEY")),
                 ("MINIO_REGION", "str", "us-east-1"),
                 # Used in carrier-io/shared · tools/vault_tools.py
-                ("SECRETS_ENGINE", "str", "vault"),
                 ("VAULT_URL", "str", "http://carrier-vault:8200"),
                 ("VAULT_DB_PK", "int", 1),
                 ("VAULT_ADMINISTRATION_NAME", "str", ("ADMINISTRATION_MODE")),
@@ -123,6 +121,10 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("DATABASE_ENGINE_OPTIONS", "dict", None),
                 # Used in tools/data_tools/files.py
                 ("TASKS_UPLOAD_FOLDER", "str", "/tmp/tasks"),
+                # Transitional (next, new, NG+) settings
+                ("STORAGE_ENGINE", "str", "s3"),
+                ("SECRETS_ENGINE", "str", "vault"),
+                ("CENTRY_USE_INFLUX", "bool", False),
             )
         )
         #
