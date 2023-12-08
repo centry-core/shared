@@ -17,6 +17,7 @@
 """ Secret engine impl """
 
 from pylon.core.tools import log  # pylint: disable=E0401
+from pylon.core.tools.context import Context as Holder  # pylint: disable=E0401
 
 
 class MockMeta(type):
@@ -53,7 +54,9 @@ class MockEngine(metaclass=MockMeta):
 
     def create_project_space(self, *args, **kwargs):
         log.info("create_project_space(%s, %s)", args, kwargs)
-        return {}
+        result = Holder()
+        result.dict = lambda: {}
+        return result
 
     def get_all_secrets(self, *args, **kwargs):
         log.info("get_all_secrets(%s, %s)", args, kwargs)
