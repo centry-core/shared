@@ -90,6 +90,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("LOKI_HOST_INTERNAL", "str", "http://carrier-loki"),
                 ("LOKI_PORT", "int", 3100),
                 # Used in carrier-io/s3_integration · module.py and shared
+                ("STORAGE_ENGINE", "str", "s3"),
                 ("MINIO_URL", "str", "http://carrier-minio:9000"),
                 ("MINIO_ACCESS_KEY", "str", ""),
                 ("MINIO_ACCESS", "str", ("MINIO_ACCESS_KEY")),

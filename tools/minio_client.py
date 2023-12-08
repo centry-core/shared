@@ -239,7 +239,7 @@ class MinioClientABC(ABC, EventManagerMixin):
         return False
 
 
-class MinioClientAdmin(MinioClientABC):
+class S3MinioClientAdmin(MinioClientABC):
     def __init__(self,
                  integration_id: Optional[int] = None,
                  **kwargs):
@@ -254,7 +254,7 @@ class MinioClientAdmin(MinioClientABC):
         return 'p--administration.'
 
 
-class MinioClient(MinioClientABC):
+class S3MinioClient(MinioClientABC):
     @classmethod
     def from_project_id(cls, project_id: int,
                         integration_id: Optional[int] = None,
@@ -284,3 +284,17 @@ class MinioClient(MinioClientABC):
     @property
     def bucket_prefix(self) -> str:
         return f'p--{self.project.id}.'
+
+#
+# Select active (compat) client for storage
+#
+
+if c.STORAGE_ENGINE == "s3":
+    MinioClient = S3MinioClient
+    MinioClientAdmin = S3MinioClientAdmin
+elif c.STORAGE_ENGINE == "mock":
+    from .storage_engines.mock import MockEngine, MockAdminEngine
+    MinioClient = MockEngine
+    MinioClientAdmin = MockAdminEngine
+else:
+    raise RuntimeError(f"Unknown storage engine: {c.STORAGE_ENGINE}")
