@@ -1,3 +1,5 @@
+# pylint: disable=E1101,E0203,C0103
+#
 #   Copyright 2023 getcarrier.io
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,99 +14,178 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from os import environ
+""" Config """
+
+import json
 from pylon.core.tools import log
 from ..patterns import SingletonABC
 
 
-class Config(metaclass=SingletonABC):
-    LOCAL_DEV = bool(environ.get('LOCAL_DEV'))
-    # this determines whether some secrets are overwritten
-    # with env values upon centry restart
-    PERSISTENT_SECRETS = bool(environ.get('PERSISTENT_SECRETS'))
-    CURRENT_RELEASE = environ.get('CURRENT_RELEASE', 'latest')
-    ADMINISTRATION_MODE = 'administration'
-    DEFAULT_MODE = 'default'
-    MAX_DOTS_ON_CHART = 100
-    BACKEND_PERFORMANCE_RESULTS_RETENTION = 30  # in days
-    BUCKET_RETENTION_DAYS = 7
+class Config(metaclass=SingletonABC):  # pylint: disable=R0903
+    """ Config singleton """
 
-    APP_IP = environ['APP_IP']
-    APP_HOST = environ['APP_HOST']
-    APP_SCHEME = environ.get('APP_SCHEME', 'http')
-    ALLOW_CORS = environ.get('ALLOW_CORS', False)
-
-    ARBITER_RUNTIME = environ.get('ARBITER_RUNTIME', 'rabbitmq')
-    EVENT_NODE_WORKERS = int(environ.get('EVENT_NODE_WORKERS', '1'))
-
-    REDIS_USER = environ.get('REDIS_USER', '')
-    REDIS_PASSWORD = environ['REDIS_PASSWORD']
-    REDIS_HOST = environ.get('REDIS_HOST', 'carrier-redis')
-    REDIS_PORT = environ.get('REDIS_PORT', 6379)
-    REDIS_DB = environ.get('REDIS_DB', 2)
-    REDIS_RABBIT_DB = environ.get('REDIS_RABBIT_DB', 4)
-    REDIS_USE_SSL = environ.get("REDIS_USE_SSL", "").lower() in ["true", "yes"]
-
-    RABBIT_HOST = environ.get('RABBIT_HOST', 'carrier-rabbit')
-    RABBIT_USER = environ['RABBIT_USER']
-    RABBIT_PASSWORD = environ['RABBIT_PASSWORD']
-    RABBIT_PORT = environ.get('RABBIT_PORT', 5672)
-    RABBIT_QUEUE_NAME = environ.get('RABBIT_QUEUE_NAME', 'default')
-    RABBIT_USE_SSL = environ.get("RABBIT_USE_SSL", "").lower() in ["true", "yes"]
-    RABBIT_SSL_VERIFY = environ.get("RABBIT_SSL_VERIFY", "").lower() in ["true", "yes"]
-
-    # GF_API_KEY = environ.get('GF_API_KEY', '')
-    INFLUX_PASSWORD = environ.get('INFLUX_PASSWORD', '')
-    INFLUX_USER = environ.get('INFLUX_USER', '')
-    INFLUX_PORT = environ.get('INFLUX_PORT', 8086)
-
-    LOKI_HOST = environ.get('LOKI_HOST', APP_HOST)
-    LOKI_HOST_INTERNAL = environ.get('LOKI_HOST_INTERNAL', 'http://carrier-loki')
-    LOKI_PORT = environ.get('LOKI_PORT', 3100)
-
-    MINIO_URL = environ.get('MINIO_URL', 'http://carrier-minio:9000')
-    MINIO_ACCESS = environ['MINIO_ACCESS_KEY']
-    MINIO_ACCESS_KEY = MINIO_ACCESS
-    MINIO_SECRET = environ['MINIO_SECRET_KEY']
-    MINIO_SECRET_KEY = MINIO_SECRET
-    MINIO_REGION = environ.get('MINIO_REGION', 'us-east-1')
-
-    VAULT_URL = environ.get('VAULT_URL', 'http://carrier-vault:8200')
-    VAULT_DB_PK = 1
-    VAULT_ADMINISTRATION_NAME = ADMINISTRATION_MODE
-
-    DATABASE_VENDOR = environ['DATABASE_VENDOR']
-    POSTGRES_SCHEMA = environ['POSTGRES_SCHEMA']
-    POSTGRES_HOST = environ['POSTGRES_HOST']
-    POSTGRES_PORT = environ['POSTGRES_PORT']
-    POSTGRES_DB = environ['POSTGRES_DB']
-    POSTGRES_USER = environ['POSTGRES_USER']
-    POSTGRES_PASSWORD = environ['POSTGRES_PASSWORD']
-    POSTGRES_TENANT_SCHEMA = 'tenant'
-
-    PROJECT_CACHE_PLUGINS = 'PROJECT_CACHE_PLUGINS'
-    PROJECT_CACHE_KEY = 'PROJECT_CACHE_KEY'
-
-    DATABASE_URI = ''
-    DATABASE_ENGINE_OPTIONS = {
-        'isolation_level': 'READ COMMITTED',
-        'echo': False,
-        'pool_size': 50,
-        'max_overflow': 100,
-        'pool_pre_ping': True
-    }
-
-    def __init__(self):
-        match self.DATABASE_VENDOR:
-            case 'sqlite':
-                Config.DATABASE_ENGINE_OPTIONS['isolation_level'] = 'SERIALIZABLE'
-                Config.DATABASE_URI = 'sqlite:///sqlite.db'
-            case _:
-                Config.DATABASE_URI = 'postgresql://{username}:{password}@{host}:{port}/{database}'.format(
+    def __init__(self, module):
+        module_cfg = module.descriptor.config
+        self.load_settings(
+            module_cfg.get("settings", {}),
+            (
+                # Currently only used in carrier-io/ui_performance · constants.py
+                ("LOCAL_DEV", "bool", False),
+                # Used in carrier-io/secrets · module.py
+                # If set to False - overrides secrets with default ones on startup
+                ("PERSISTENT_SECRETS", "bool", True),
+                # Sets runtime container tags e.g. in carrier-io/backend_performance · constants.py
+                ("CURRENT_RELEASE", "str", "latest"),
+                # Common mode names
+                ("ADMINISTRATION_MODE", "str", "administration"),
+                ("DEFAULT_MODE", "str", "default"),
+                # Used in carrier-io/backend_performance e.g. in connectors/minio_connector.py
+                ("MAX_DOTS_ON_CHART", "int", 100),
+                # Stored in secrets, used in carrier-io/backend_performance · api/v1/retention.py
+                ("BACKEND_PERFORMANCE_RESULTS_RETENTION", "int", 30),   # in days
+                # Used in carrier-io/tasks · utils.py
+                ("BUCKET_RETENTION_DAYS", "int", 7),
+                # Used in carrier-io/secrets · module.py to set influx_ip and rabbit_host
+                # TODO: specify EXTERNAL_REDIS_HOST and others explicitly
+                ("APP_IP", "str"),
+                # Used to set URLs; galloper_url in carrier-io/secrets · module.py
+                ("APP_HOST", "str"),
+                # Only used in carrier-io/shared · tools/loki_tools.py
+                ("APP_SCHEME", "str", "http"),
+                # Used in auth to set CORS headers
+                ("ALLOW_CORS", "bool", False),
+                # Sets arbiter eventnode type for tasks
+                ("ARBITER_RUNTIME", "str", "rabbitmq"),
+                # Sets eventnode processing threads for tasknode and such
+                ("EVENT_NODE_WORKERS", "int", 1),
+                # Used to create redis clients. E.g. in carrier-io/projects · rpc/main.py
+                ("REDIS_HOST", "str", "centry-redis"),
+                ("REDIS_PORT", "int", 6379),
+                ("REDIS_USER", "str", ""),
+                ("REDIS_PASSWORD", "str", ""),
+                # Only seems to be used in old code: carrier-io/carrier-auth · auth/utils/redis_client.py  # pylint: disable=C0301
+                ("REDIS_DB", "int", 2),
+                # Used in carrier-io/projects · rpc/main.py and others
+                ("REDIS_RABBIT_DB", "int", 4),
+                # For arbiter/eventnodes
+                ("REDIS_USE_SSL", "bool", False),
+                # Used in some places, other use data from secrets - which maps to APP_IP
+                ("RABBIT_HOST", "str", None),
+                ("RABBIT_PORT", "int", 5672),
+                ("RABBIT_USER", "str", ""),
+                ("RABBIT_PASSWORD", "str", ""),
+                # Used in carrier-io/tasks · tools/TaskManager.py
+                ("RABBIT_QUEUE_NAME", "str", "default"),
+                ("RABBIT_USE_SSL", "bool", False),
+                ("RABBIT_SSL_VERIFY", "bool", False),
+                # Stored in carrier-io/secrets · module.py
+                # Used in performance and carrier-io/projects · tools/influx_tools.py
+                # TODO: set INFLUX_ENABLED/USE_INFLUX and others
+                # FIXME: set influx_host from INFLUX_HOST, not APP_IP
+                ("INFLUX_PORT", "int", 8086),
+                ("INFLUX_USER", "str", ""),
+                ("INFLUX_PASSWORD", "str", ""),
+                # Stored in secrets used in multiple places
+                ("LOKI_HOST", "str", ("APP_HOST")),
+                ("LOKI_HOST_INTERNAL", "str", "http://carrier-loki"),
+                ("LOKI_PORT", "int", 3100),
+                # Used in carrier-io/s3_integration · module.py and shared
+                ("MINIO_URL", "str", "http://carrier-minio:9000"),
+                ("MINIO_ACCESS_KEY", "str", ""),
+                ("MINIO_ACCESS", "str", ("MINIO_ACCESS_KEY")),
+                ("MINIO_SECRET_KEY", "str", ""),
+                ("MINIO_SECRET", "str", ("MINIO_SECRET_KEY")),
+                ("MINIO_REGION", "str", "us-east-1"),
+                # Used in carrier-io/shared · tools/vault_tools.py
+                ("VAULT_URL", "str", "http://carrier-vault:8200"),
+                ("VAULT_DB_PK", "int", 1),
+                ("VAULT_ADMINISTRATION_NAME", "str", ("ADMINISTRATION_MODE")),
+                # Used in shared and carrier-io/shared_orch · utils.py
+                # TODO: remove shared_orch
+                ("DATABASE_VENDOR", "str", "postgres"),
+                ("POSTGRES_HOST", "str", "centry-postgres"),
+                ("POSTGRES_PORT", "int", 5432),
+                ("POSTGRES_USER", "str", ""),
+                ("POSTGRES_PASSWORD", "str", ""),
+                ("POSTGRES_DB", "str", "centry"),
+                ("POSTGRES_SCHEMA", "str", "centry"),
+                ("POSTGRES_TENANT_SCHEMA", "str", "tenant"),
+                # Only for some tests
+                ("SQLITE_DB", "str", "sqlite.db"),
+                # Used in carrier-io/projects · tools/session_plugins.py
+                ("PROJECT_CACHE_PLUGINS", "str", "PROJECT_CACHE_PLUGINS"),
+                # Used in carrier-io/projects · tools/session_project.py
+                ("PROJECT_CACHE_KEY", "str", "PROJECT_CACHE_KEY"),
+                # Used in carrier-io/shared · tools/db.py and carrier-io/projects · module.py
+                ("DATABASE_URI", "str", None),
+                ("DATABASE_ENGINE_OPTIONS", "dict", None),
+                # Used in tools/data_tools/files.py
+                ("TASKS_UPLOAD_FOLDER", "str", "/tmp/tasks"),
+            )
+        )
+        #
+        # Make DB URI if not set
+        #
+        if self.DATABASE_ENGINE_OPTIONS is None:
+            self.DATABASE_ENGINE_OPTIONS = {}
+        #
+        if self.DATABASE_URI is None:
+            if self.DATABASE_VENDOR == "sqlite":  # Probably is not supported with tenant schemas now  # pylint: disable=C0301
+                self.DATABASE_URI = f"sqlite:///{self.SQLITE_DB}"
+                self.DATABASE_ENGINE_OPTIONS["isolation_level"] = "SERIALIZABLE"
+            elif self.DATABASE_VENDOR == "postgres":
+                self.DATABASE_URI = 'postgresql://{username}:{password}@{host}:{port}/{database}'.format(  # pylint: disable=C0301
                     host=self.POSTGRES_HOST,
                     port=self.POSTGRES_PORT,
                     username=self.POSTGRES_USER,
                     password=self.POSTGRES_PASSWORD,
                     database=self.POSTGRES_DB
                 )
-        log.info('Initializing config %s', self)
+                if not self.DATABASE_ENGINE_OPTIONS:
+                    self.DATABASE_ENGINE_OPTIONS = {
+                        "isolation_level": "READ COMMITTED",
+                        "echo": False,
+                        "pool_size": 50,
+                        "max_overflow": 100,
+                        "pool_pre_ping": True
+                    }
+            else:
+                raise RuntimeError(f"Unsupported DB vendor: {self.DATABASE_VENDOR}")
+        #
+        log.info('Initialized config %s', self)
+
+    def load_settings(self, settings, schema):
+        """ Load and set config vars """
+        processors = {
+            "str": lambda item: item if isinstance(item, str) else str(item),
+            "int": lambda item: item if isinstance(item, int) else int(item),
+            "bool": lambda item: item if isinstance(item, bool) else item.lower() in ["true", "yes"],  # pylint: disable=C0301
+            "dict": lambda item: item if isinstance(item, dict) else json.loads(item),
+        }
+        #
+        for item in schema:
+            if len(item) == 3:
+                key, kind, default = item
+            elif len(item) == 2:
+                key, kind = item
+                default = ...
+            else:
+                raise RuntimeError(f"Invalid config schema: {item}")
+            #
+            if type(default) in [tuple, list]:
+                default = getattr(self, default[0])
+            #
+            data = ...
+            for variant in [key, key.lower(), key.upper()]:
+                if variant in settings:
+                    data = settings[variant]
+            #
+            if data is ... and default is ...:
+                raise RuntimeError(f"Required config value is not set: {key}")
+            #
+            if data is ...:
+                data = default
+            elif kind in processors:
+                data = processors[kind](data)
+            #
+            setattr(self, key, data)

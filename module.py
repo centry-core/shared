@@ -35,7 +35,7 @@ class Module(module.ModuleModel):
         EventManagerMixin.set_event_manager(self.context.event_manager)
 
         from .tools.config import Config
-        _config = Config()
+        _config = Config(self)
         self.descriptor.register_tool('constants', _config)
         self.descriptor.register_tool('config', _config)
 

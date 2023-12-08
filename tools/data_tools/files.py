@@ -5,6 +5,8 @@ from requests import get
 import os
 from uuid import uuid4
 
+from tools import config as c
+
 
 class File(BytesIO):
     def __init__(self, url: str, file_name: Optional[str] = None):
@@ -31,8 +33,8 @@ class FileOld:
 
     def read(self):
         if not self.path:
-            # self.path = os.path.join(os.environ.get("TASKS_UPLOAD_FOLDER", "/tmp/tasks"), str(uuid4()))
-            self.path = os.path.join(os.environ.get("TASKS_UPLOAD_FOLDER", "/tmp/tasks"), self.filename)
+            # self.path = os.path.join(c.TASKS_UPLOAD_FOLDER, str(uuid4()))
+            self.path = os.path.join(c.TASKS_UPLOAD_FOLDER, self.filename)
             r = get(self.url, allow_redirects=True)
             with open(self.path, 'wb') as f:
                 f.write(r.content)
