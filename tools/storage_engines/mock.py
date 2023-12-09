@@ -46,6 +46,8 @@ class EngineBase(metaclass=MockMeta):
     def __init__(self, *args, **kwargs):
         _ = args, kwargs
         #
+        self.event_manager = context.event_manager
+        #
         self.bucket_path = os.path.join(c.MOCK_STORAGE_PATH, "bucket")
         self.meta_path = os.path.join(c.MOCK_STORAGE_PATH, "meta")
         #
