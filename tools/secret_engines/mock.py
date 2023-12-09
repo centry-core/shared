@@ -93,6 +93,14 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         self.get_project_secrets = self.get_secrets
         self.get_project_hidden_secrets = self.get_hidden_secrets
 
+    def _write(self, data):
+        with open(self.storage, "w", encoding="utf-8") as file:
+            json.dump(data, file)
+
+    def _read(self):
+        with open(self.storage, "rb") as file:
+            return json.load(file)
+
     @property
     def db_data(self):
         raise RuntimeError("Not supported")
@@ -117,11 +125,10 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         log.info("create_project_space(%s, %s)", args, kwargs)
         #
         if not os.path.exists(self.storage):
-            with open(self.storage, "w", encoding="utf-8") as file:
-                json.dump({
-                    "secrets": {},
-                    "hidden_secrets": {},
-                }, file)
+            self._write({
+                "secrets": {},
+                "hidden_secrets": {},
+            })
         #
         result = Holder()
         result.dict = lambda *args, **kwargs: {}
@@ -136,26 +143,18 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
     def set_secrets(self, secrets, **kwargs):
         log.info("set_secrets(%s, %s)", "<redacted>", kwargs)
         #
-        with open(self.storage, "rb") as file:
-            data = json.load(file)
-        #
+        data = self._read()
         data["secrets"] = secrets
-        #
-        with open(self.storage, "w", encoding="utf-8") as file:
-            json.dump(data, file)
+        self._write(data)
         #
         self._cache["secrets"] = secrets
 
     def set_hidden_secrets(self, secrets, **kwargs):
         log.info("set_hidden_secrets(%s, %s)", "<redacted>", kwargs)
         #
-        with open(self.storage, "rb") as file:
-            data = json.load(file)
-        #
+        data = self._read()
         data["hidden_secrets"] = secrets
-        #
-        with open(self.storage, "w", encoding="utf-8") as file:
-            json.dump(data, file)
+        self._write(data)
         #
         self._cache["hidden_secrets"] = secrets
 
@@ -163,9 +162,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         log.info("get_secrets(%s, %s)", args, kwargs)
         #
         if not self._cache["secrets"]:
-            with open(self.storage, "rb") as file:
-                data = json.load(file)
-            #
+            data = self._read()
             self._cache["secrets"] = data["secrets"]
         #
         return self._cache["secrets"].copy()
@@ -174,9 +171,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         log.info("get_hidden_secrets(%s, %s)", args, kwargs)
         #
         if not self._cache["hidden_secrets"]:
-            with open(self.storage, "rb") as file:
-                data = json.load(file)
-            #
+            data = self._read()
             self._cache["hidden_secrets"] = data["hidden_secrets"]
         #
         return self._cache["hidden_secrets"].copy()
