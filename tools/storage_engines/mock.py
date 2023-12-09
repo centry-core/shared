@@ -107,7 +107,14 @@ class EngineBase(metaclass=MockMeta):
         path = os.path.join(self.bucket_path, bucket_name, file_name)
         #
         with open(path, "wb") as file:
-            file.write(file_obj.read())
+            if isinstance(file_obj, bytes):
+                data = file_obj
+            elif isinstance(file_obj, str):
+                data = file_obj.encode()
+            else:
+                data = file_obj.read()
+            #
+            file.write(data)
         #
         # throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
         #
