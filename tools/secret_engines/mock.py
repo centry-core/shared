@@ -37,7 +37,7 @@ class MockMeta(type):
         log.info("cls.__getattr__(%s)", name)
 
 
-class MockEngine(metaclass=MockMeta):  # pylint: disable=R0902
+class Engine(metaclass=MockMeta):  # pylint: disable=R0902
     """ Client mock / debug class """
 
     def __getattr__(self, name):

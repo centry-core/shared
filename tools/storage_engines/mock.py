@@ -36,7 +36,7 @@ class MockMeta(type):
         log.info("cls.__delattr__(%s)", name)
 
 
-class MockEngine(metaclass=MockMeta):
+class Engine(metaclass=MockMeta):
     """ Client mock / debug class """
 
     def __init__(self, *args, **kwargs):
@@ -66,7 +66,7 @@ class MockEngine(metaclass=MockMeta):
         return []
 
 
-class MockAdminEngine(metaclass=MockMeta):
+class AdminEngine(metaclass=MockMeta):
     """ Client mock / debug class """
 
     def __init__(self, *args, **kwargs):

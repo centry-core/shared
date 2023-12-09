@@ -3,6 +3,7 @@ from json import loads
 from queue import Empty
 from typing import Optional
 import sys
+import importlib
 
 import boto3
 from botocore.client import Config, ClientError
@@ -289,12 +290,18 @@ class S3MinioClient(MinioClientABC):
 # Select active (compat) client for storage
 #
 
+log.info("Using storage engine: %s", c.STORAGE_ENGINE)
+#
 if c.STORAGE_ENGINE == "s3":
     MinioClient = S3MinioClient
     MinioClientAdmin = S3MinioClientAdmin
-elif c.STORAGE_ENGINE == "mock":
-    from .storage_engines.mock import MockEngine, MockAdminEngine
-    MinioClient = MockEngine
-    MinioClientAdmin = MockAdminEngine
 else:
-    raise RuntimeError(f"Unknown storage engine: {c.STORAGE_ENGINE}")
+    try:
+        engine_pkg = importlib.import_module(
+            f"plugins.shared.tools.storage_engines.{c.STORAGE_ENGINE}"
+        )
+        MinioClient = engine_pkg.Engine
+        MinioClientAdmin = engine_pkg.AdminEngine
+    except:  # pylint: disable=W0702
+        log.exception("Failed to set storage engine: %s", c.STORAGE_ENGINE)
+        raise

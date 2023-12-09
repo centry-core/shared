@@ -16,6 +16,8 @@
 #     limitations under the License.
 
 """ Vault tools """
+
+import importlib
 from functools import wraps
 from typing import Optional, Any, Union, List, Tuple
 
@@ -429,10 +431,16 @@ class HashiCorpVaultClient:
 # Select active (compat) client for secrets
 #
 
+log.info("Using secrets engine: %s", c.SECRETS_ENGINE)
+#
 if c.SECRETS_ENGINE == "vault":
     VaultClient = HashiCorpVaultClient
-elif c.SECRETS_ENGINE == "mock":
-    from .secret_engines.mock import MockEngine
-    VaultClient = MockEngine
 else:
-    raise RuntimeError(f"Unknown secrets engine: {c.SECRETS_ENGINE}")
+    try:
+        engine_pkg = importlib.import_module(
+            f"plugins.shared.tools.secret_engines.{c.SECRETS_ENGINE}"
+        )
+        VaultClient = engine_pkg.Engine
+    except:  # pylint: disable=W0702
+        log.exception("Failed to set secrets engine: %s", c.SECRETS_ENGINE)
+        raise
