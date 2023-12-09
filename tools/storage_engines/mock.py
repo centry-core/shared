@@ -106,7 +106,7 @@ class EngineBase(metaclass=MockMeta):
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(self.bucket_path, bucket_name, file_name)
         #
-        with open(path, "rb") as file:
+        with open(path, "wb") as file:
             file.write(file_obj.read())
         #
         # throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
