@@ -32,21 +32,7 @@ class MockMeta(type):
         log.info("cls.__getattr__(%s)", name)
 
 
-class MockBaseMeta(type):
-    """ Client meta class """
-
-    def __getattr__(cls, name):
-        log.info("base_cls.__getattr__(%s)", name)
-
-
-class MockAdminMeta(type):
-    """ Client meta class """
-
-    def __getattr__(cls, name):
-        log.info("admin_cls.__getattr__(%s)", name)
-
-
-class EngineBase(metaclass=MockBaseMeta):
+class EngineBase(metaclass=MockMeta):
     """ Client mock / debug base class """
 
     def __getattr__(self, name):
@@ -128,7 +114,7 @@ class EngineBase(metaclass=MockBaseMeta):
         # No return response data emulated
 
 
-class Engine(EngineBase, metaclass=MockMeta):
+class Engine(EngineBase):
     """ Client mock / debug class """
 
     def __init__(self, project, integration_id=None, is_local=True, **kwargs):
@@ -159,7 +145,7 @@ class Engine(EngineBase, metaclass=MockMeta):
         return cls(project, integration_id, is_local)
 
 
-class AdminEngine(EngineBase, metaclass=MockAdminMeta):
+class AdminEngine(EngineBase):
     """ Client mock / debug class """
 
     def __init__(self, integration_id=None, **kwargs):
