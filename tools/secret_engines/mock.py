@@ -36,24 +36,12 @@ class MockMeta(type):
     def __getattr__(cls, name):
         log.info("cls.__getattr__(%s)", name)
 
-    def __setattr__(cls, name, value):
-        log.info("cls.__setattr__(%s)", name)
-
-    def __delattr__(cls, name):
-        log.info("cls.__delattr__(%s)", name)
-
 
 class MockEngine(metaclass=MockMeta):  # pylint: disable=R0902
     """ Client mock / debug class """
 
     def __getattr__(self, name):
         log.info("__getattr__(%s)", name)
-
-    def __setattr__(self, name, value):
-        log.info("__setattr__(%s)", name)
-
-    def __delattr__(self, name):
-        log.info("__delattr__(%s)", name)
 
     @staticmethod
     def get_project_creds(project):
