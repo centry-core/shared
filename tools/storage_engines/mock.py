@@ -16,7 +16,11 @@
 
 """ Secret engine impl """
 
+import os
+
 from pylon.core.tools import log  # pylint: disable=E0401
+
+from tools import config as c  # pylint: disable=E0401
 
 
 class MockMeta(type):
