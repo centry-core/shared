@@ -39,7 +39,7 @@ class EngineBase(metaclass=MockMeta):
         log.info("base.__getattr__(%s)", name)
 
     def __init__(self, *args, **kwargs):
-        log.info("base.__init__(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         self.bucket_path = os.path.join(c.MOCK_STORAGE_PATH, "bucket")
         self.meta_path = os.path.join(c.MOCK_STORAGE_PATH, "meta")
@@ -120,12 +120,67 @@ class EngineBase(metaclass=MockMeta):
         #
         # No return response data emulated
 
+    # def download_file(self, bucket: str, file_name: str, project_id: int = None) -> bytes:
+    #     response = self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
+    #     throughput_monitor(client=self, file_size=response['ContentLength'], project_id=project_id)
+    #     return response["Body"].read()
+
+    # @space_monitor
+    # def remove_file(self, bucket: str, file_name: str):
+    #     # self._space_monitor()
+    #     return self.s3_client.delete_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
+
+    # def remove_bucket(self, bucket: str):
+    #     # self._space_monitor()
+    #     for file_obj in self.list_files(bucket):
+    #         self.remove_file(bucket, file_obj["name"])
+    #     self.s3_client.delete_bucket(Bucket=self.format_bucket_name(bucket))
+
+    # def configure_bucket_lifecycle(self, bucket: str, days: int) -> None:
+    #     self.s3_client.put_bucket_lifecycle_configuration(
+    #         Bucket=self.format_bucket_name(bucket),
+    #         LifecycleConfiguration={
+    #             "Rules": [
+    #                 {
+    #                     "Expiration": {
+    #                         # "NoncurrentVersionExpiration": days,
+    #                         "Days": days
+    #                         # "ExpiredObjectDeleteMarker": True
+    #                     },
+    #                     "NoncurrentVersionExpiration": {
+    #                         'NoncurrentDays': days
+    #                     },
+    #                     "ID": "bucket-retention-policy",
+    #                     'Filter': {'Prefix': ''},
+    #                     "Status": "Enabled"
+    #                 }
+    #             ]
+    #         }
+    #     )
+
+    # def get_bucket_lifecycle(self, bucket: str) -> dict:
+    #     return self.s3_client.get_bucket_lifecycle(Bucket=self.format_bucket_name(bucket))
+
+    def get_bucket_size(self, bucket):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.bucket_path, bucket_name)
+        #
+        total_size = 0
+        #
+        with os.scandir(path) as it:
+            for entry in it:
+                stat = entry.stat()
+                #
+                total_size += stat.st_size
+        #
+        return total_size
+
 
 class Engine(EngineBase):
     """ Client mock / debug class """
 
     def __init__(self, project, integration_id=None, is_local=True, **kwargs):
-        log.info("__init__(%s, %s, %s, %s)", project, integration_id, is_local, kwargs)
+        _ = kwargs
         #
         self.project = project
         self.integration_id = integration_id
@@ -156,7 +211,7 @@ class AdminEngine(EngineBase):
     """ Client mock / debug class """
 
     def __init__(self, integration_id=None, **kwargs):
-        log.info("admin.__init__(%s, %s)", integration_id, kwargs)
+        _ = kwargs
         #
         self.project = None
         self.integration_id = integration_id
