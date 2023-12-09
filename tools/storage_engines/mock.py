@@ -175,6 +175,36 @@ class EngineBase(metaclass=MockMeta):
         #
         return total_size
 
+    def get_file_size(self, bucket, filename):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.bucket_path, bucket_name, filename)
+        #
+        stat = os.stat(path)
+        return stat.st_size
+
+    def get_bucket_tags(self, bucket):
+        log.info("get_bucket_tags(%s)", bucket)
+        return {}
+
+    # def set_bucket_tags(self, bucket: str, tags: dict) -> None:
+    #     tag_set = [{'Key': k, 'Value': v} for k, v in tags.items()]
+    #     self.s3_client.put_bucket_tagging(
+    #         Bucket=self.format_bucket_name(bucket),
+    #         Tagging={
+    #             'TagSet': tag_set
+    #         },
+    #     )
+
+    def select_object_content(self, bucket, file_name, expression_addon=""):
+        log.info("select_object_content(%s, %s, %s)", bucket, file_name, expression_addon)
+        return []
+
+    def is_file_exist(self, bucket, file_name):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        #
+        return os.path.exists(path)
+
 
 class Engine(EngineBase):
     """ Client mock / debug class """
