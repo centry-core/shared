@@ -87,20 +87,20 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("INFLUX_USER", "str", ""),
                 ("INFLUX_PASSWORD", "str", ""),
                 # Stored in secrets used in multiple places
-                ("LOKI_HOST", "str", ("APP_HOST")),
+                ("LOKI_HOST", "str", {"APP_HOST"}),
                 ("LOKI_HOST_INTERNAL", "str", "http://carrier-loki"),
                 ("LOKI_PORT", "int", 3100),
                 # Used in carrier-io/s3_integration · module.py and shared
                 ("MINIO_URL", "str", "http://carrier-minio:9000"),
                 ("MINIO_ACCESS_KEY", "str", ""),
-                ("MINIO_ACCESS", "str", ("MINIO_ACCESS_KEY")),
+                ("MINIO_ACCESS", "str", {"MINIO_ACCESS_KEY"}),
                 ("MINIO_SECRET_KEY", "str", ""),
-                ("MINIO_SECRET", "str", ("MINIO_SECRET_KEY")),
+                ("MINIO_SECRET", "str", {"MINIO_SECRET_KEY"}),
                 ("MINIO_REGION", "str", "us-east-1"),
                 # Used in carrier-io/shared · tools/vault_tools.py
                 ("VAULT_URL", "str", "http://carrier-vault:8200"),
                 ("VAULT_DB_PK", "int", 1),
-                ("VAULT_ADMINISTRATION_NAME", "str", ("ADMINISTRATION_MODE")),
+                ("VAULT_ADMINISTRATION_NAME", "str", {"ADMINISTRATION_MODE"}),
                 # Used in shared and carrier-io/shared_orch · utils.py
                 # TODO: remove shared_orch
                 ("DATABASE_VENDOR", "str", "postgres"),
@@ -126,6 +126,8 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("STORAGE_ENGINE", "str", "s3"),
                 ("SECRETS_ENGINE", "str", "vault"),
                 ("CENTRY_USE_INFLUX", "bool", False),
+                ("MOCK_STORAGE_PATH", "str", "/tmp/mock/storage"),
+                ("MOCK_SECRETS_PATH", "str", "/tmp/mock/secrets"),
             )
         )
         #
@@ -177,8 +179,8 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
             else:
                 raise RuntimeError(f"Invalid config schema: {item}")
             #
-            if type(default) in [tuple, list]:
-                default = getattr(self, default[0])
+            if isinstance(default, set):
+                default = getattr(self, list(default)[0])
             #
             data = ...
             for variant in [key, key.lower(), key.upper()]:
