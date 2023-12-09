@@ -43,6 +43,8 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
     def __getattr__(self, name):
         log.info("__getattr__(%s)", name)
 
+    template_node_name = "secret"
+
     @staticmethod
     def get_project_creds(project):
         project_config = None  # actually not used, for compat only
@@ -70,8 +72,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
             fix_project_auth=False, track_used_secrets=False,
             **kwargs
     ):
-        log.info("__init__(%s, %s, %s)", project, track_used_secrets, kwargs)
-        _ = fix_project_auth
+        _ = fix_project_auth, kwargs
         #
         self.track_used_secrets = track_used_secrets
         self.used_secrets = set()
@@ -111,7 +112,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
 
     @staticmethod
     def init_vault(*args, **kwargs):
-        log.info("init_vault(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         os.makedirs(c.MOCK_SECRETS_PATH, exist_ok=True)
 
@@ -122,7 +123,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         return wrapper
 
     def create_project_space(self, *args, **kwargs):
-        log.info("create_project_space(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         if not os.path.exists(self.storage):
             self._write({
@@ -135,13 +136,13 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         return result
 
     def remove_project_space(self, *args, **kwargs):
-        log.info("remove_project_space(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         if os.path.exists(self.storage):
             os.remove(self.storage)
 
     def set_secrets(self, secrets, **kwargs):
-        log.info("set_secrets(%s, %s)", "<redacted>", kwargs)
+        _ = kwargs
         #
         data = self._read()
         data["secrets"] = secrets
@@ -150,7 +151,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         self._cache["secrets"] = secrets
 
     def set_hidden_secrets(self, secrets, **kwargs):
-        log.info("set_hidden_secrets(%s, %s)", "<redacted>", kwargs)
+        _ = kwargs
         #
         data = self._read()
         data["hidden_secrets"] = secrets
@@ -159,7 +160,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         self._cache["hidden_secrets"] = secrets
 
     def get_secrets(self, *args, **kwargs):
-        log.info("get_secrets(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         if not self._cache["secrets"]:
             data = self._read()
@@ -168,7 +169,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         return self._cache["secrets"].copy()
 
     def get_hidden_secrets(self, *args, **kwargs):
-        log.info("get_hidden_secrets(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         if not self._cache["hidden_secrets"]:
             data = self._read()
@@ -177,7 +178,7 @@ class Engine(metaclass=MockMeta):  # pylint: disable=R0902
         return self._cache["hidden_secrets"].copy()
 
     def get_all_secrets(self, *args, **kwargs):
-        log.info("get_all_secrets(%s, %s)", args, kwargs)
+        _ = args, kwargs
         #
         if not self._cache["shared_secrets"]:
             self._cache["shared_secrets"] = self.__class__().get_secrets()

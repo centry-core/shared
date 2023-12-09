@@ -17,12 +17,15 @@
 """ Secret engine impl """
 
 import os
+import sys
 import datetime
 
 from pylon.core.tools import log  # pylint: disable=E0401
 
 from tools import context  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
+
+from .minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
 
 
 class MockMeta(type):
@@ -37,6 +40,8 @@ class EngineBase(metaclass=MockMeta):
 
     def __getattr__(self, name):
         log.info("base.__getattr__(%s)", name)
+
+    TASKS_BUCKET = "tasks"
 
     def __init__(self, *args, **kwargs):
         _ = args, kwargs
@@ -101,7 +106,7 @@ class EngineBase(metaclass=MockMeta):
         #
         return files
 
-    # @space_monitor
+    @space_monitor
     def upload_file(self, bucket, file_obj, file_name):
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(self.bucket_path, bucket_name, file_name)
@@ -116,25 +121,40 @@ class EngineBase(metaclass=MockMeta):
             #
             file.write(data)
         #
-        # throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
+        throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
         #
         # No return response data emulated
 
-    # def download_file(self, bucket: str, file_name: str, project_id: int = None) -> bytes:
-    #     response = self.s3_client.get_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
-    #     throughput_monitor(client=self, file_size=response['ContentLength'], project_id=project_id)
-    #     return response["Body"].read()
+    def download_file(self, bucket, file_name, project_id=None):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        #
+        file_size = self.get_file_size(bucket, file_name)
+        throughput_monitor(client=self, file_size=file_size, project_id=project_id)
+        #
+        if file_size == 0:
+            return b""
+        #
+        with open(path, "rb") as file:
+            return file.read()
 
-    # @space_monitor
-    # def remove_file(self, bucket: str, file_name: str):
-    #     # self._space_monitor()
-    #     return self.s3_client.delete_object(Bucket=self.format_bucket_name(bucket), Key=file_name)
+    @space_monitor
+    def remove_file(self, bucket, file_name):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        #
+        if os.path.exists(path):
+            os.remove(path)
 
-    # def remove_bucket(self, bucket: str):
-    #     # self._space_monitor()
-    #     for file_obj in self.list_files(bucket):
-    #         self.remove_file(bucket, file_obj["name"])
-    #     self.s3_client.delete_bucket(Bucket=self.format_bucket_name(bucket))
+    def remove_bucket(self, bucket):
+        for file_obj in self.list_files(bucket):
+            self.remove_file(bucket, file_obj["name"])
+        #
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.bucket_path, bucket_name)
+        #
+        if os.path.exists(path):
+            os.remove(path)
 
     # def configure_bucket_lifecycle(self, bucket: str, days: int) -> None:
     #     self.s3_client.put_bucket_lifecycle_configuration(
@@ -158,8 +178,9 @@ class EngineBase(metaclass=MockMeta):
     #         }
     #     )
 
-    # def get_bucket_lifecycle(self, bucket: str) -> dict:
-    #     return self.s3_client.get_bucket_lifecycle(Bucket=self.format_bucket_name(bucket))
+    def get_bucket_lifecycle(self, bucket):
+        log.info("get_bucket_lifecycle(%s)", bucket)
+        return {}
 
     def get_bucket_size(self, bucket):
         bucket_name = self.format_bucket_name(bucket)
@@ -179,8 +200,11 @@ class EngineBase(metaclass=MockMeta):
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(self.bucket_path, bucket_name, filename)
         #
-        stat = os.stat(path)
-        return stat.st_size
+        try:
+            stat = os.stat(path)
+            return stat.st_size
+        except:  # pylint: disable=W0702
+            return 0
 
     def get_bucket_tags(self, bucket):
         log.info("get_bucket_tags(%s)", bucket)
