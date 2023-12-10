@@ -134,9 +134,6 @@ class EngineBase(metaclass=MockMeta):
         file_size = self.get_file_size(bucket, file_name)
         throughput_monitor(client=self, file_size=file_size, project_id=project_id)
         #
-        if file_size == 0:
-            return b""
-        #
         with open(path, "rb") as file:
             return file.read()
 
