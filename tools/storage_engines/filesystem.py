@@ -211,7 +211,7 @@ class EngineBase(metaclass=EngineMeta):
         meta_path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
         #
         if os.path.exists(path):
-            os.remove(path)
+            os.rmdir(path)
         #
         if os.path.exists(meta_path):
             os.remove(meta_path)
