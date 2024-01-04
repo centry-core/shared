@@ -18,6 +18,8 @@
 
 import os
 import sys
+import json
+import base64
 import datetime
 
 from pylon.core.tools import log  # pylint: disable=E0401
@@ -67,16 +69,57 @@ class EngineBase(metaclass=EngineMeta):
         #
         return f"{self.bucket_prefix}{bucket}"
 
+    @staticmethod
+    def _fs_encode_name(name):
+        if c.STORAGE_FILESYSTEM_ENCODER == "base64":
+            return base64.urlsafe_b64encode(name.encode()).decode()
+        #
+        if c.STORAGE_FILESYSTEM_ENCODER == "base32":
+            return base64.b32encode(name.encode()).decode()
+        #
+        return name
+
+    @staticmethod
+    def _fs_decode_name(name):
+        if c.STORAGE_FILESYSTEM_ENCODER == "base64":
+            return base64.urlsafe_b64decode(name.encode()).decode()
+        #
+        if c.STORAGE_FILESYSTEM_ENCODER == "base32":
+            return base64.b32decode(name.encode()).decode()
+        #
+        return name
+
+    def _save_meta(self, bucket, meta):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
+        #
+        with open(path, "w", encoding="utf-8") as file:
+            json.dump(meta, file)
+
+    def _load_meta(self, bucket):
+        bucket_name = self.format_bucket_name(bucket)
+        path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
+        #
+        if os.path.exists(path):
+            with open(self.storage, "rb") as file:
+                return json.load(file)
+        #
+        return {}
+
     def list_bucket(self):
-        return [
-            item.replace(self.bucket_prefix, "", 1)
-            for item in os.listdir(path=self.bucket_path)
-            if item.startswith(self.bucket_prefix)
-        ]
+        result = []
+        #
+        for item in os.listdir(path=self.bucket_path):
+            name = self._fs_decode_name(item)
+            #
+            if name.startswith(self.bucket_prefix):
+                result.append(name.replace(self.bucket_prefix, "", 1))
+        #
+        return result
 
     def create_bucket(self, bucket, bucket_type=None, retention_days=None):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name)
+        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
         #
         os.makedirs(path, exist_ok=True)
         #
@@ -92,7 +135,7 @@ class EngineBase(metaclass=EngineMeta):
         _ = next_continuation_token
         #
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name)
+        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
         #
         files = []
         #
@@ -101,7 +144,7 @@ class EngineBase(metaclass=EngineMeta):
                 stat = entry.stat()
                 #
                 files.append({
-                    "name": entry.name,
+                    "name": self._fs_decode_name(entry.name),
                     "size": stat.st_size,
                     "modified": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 })
@@ -111,7 +154,11 @@ class EngineBase(metaclass=EngineMeta):
     @space_monitor
     def upload_file(self, bucket, file_obj, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        path = os.path.join(
+            self.bucket_path,
+            self._fs_encode_name(bucket_name),
+            self._fs_encode_name(file_name)
+        )
         #
         with open(path, "wb") as file:
             if isinstance(file_obj, bytes):
@@ -129,7 +176,11 @@ class EngineBase(metaclass=EngineMeta):
 
     def download_file(self, bucket, file_name, project_id=None):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        path = os.path.join(
+            self.bucket_path,
+            self._fs_encode_name(bucket_name),
+            self._fs_encode_name(file_name)
+        )
         #
         file_size = self.get_file_size(bucket, file_name)
         throughput_monitor(client=self, file_size=file_size, project_id=project_id)
@@ -140,7 +191,11 @@ class EngineBase(metaclass=EngineMeta):
     @space_monitor
     def remove_file(self, bucket, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        path = os.path.join(
+            self.bucket_path,
+            self._fs_encode_name(bucket_name),
+            self._fs_encode_name(file_name)
+        )
         #
         if os.path.exists(path):
             os.remove(path)
@@ -150,21 +205,39 @@ class EngineBase(metaclass=EngineMeta):
             self.remove_file(bucket, file_obj["name"])
         #
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name)
+        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
+        meta_path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
         #
         if os.path.exists(path):
             os.remove(path)
+        #
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
 
     def configure_bucket_lifecycle(self, bucket, days):
-        log.info("configure_bucket_lifecycle(%s, %s)", bucket, days)
+        meta = self._load_meta(bucket)
+        #
+        meta["lifecycle"] = days
+        #
+        self._save_meta(bucket, meta)
 
     def get_bucket_lifecycle(self, bucket):
-        log.info("get_bucket_lifecycle(%s)", bucket)
-        return {}
+        meta = self._load_meta(bucket)
+        #
+        if not meta or "lifecycle" not in meta:
+            return {}
+        #
+        return {
+            "Rules": [{
+                "Expiration": {
+                    "Days": meta["lifecycle"],
+                },
+            }],
+        }
 
     def get_bucket_size(self, bucket):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name)
+        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
         #
         total_size = 0
         #
@@ -178,7 +251,11 @@ class EngineBase(metaclass=EngineMeta):
 
     def get_file_size(self, bucket, filename):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name, filename)
+        path = os.path.join(
+            self.bucket_path,
+            self._fs_encode_name(bucket_name),
+            self._fs_encode_name(filename)
+        )
         #
         try:
             stat = os.stat(path)
@@ -187,11 +264,32 @@ class EngineBase(metaclass=EngineMeta):
             return 0
 
     def get_bucket_tags(self, bucket):
-        log.info("get_bucket_tags(%s)", bucket)
-        return {}
+        meta = self._load_meta(bucket)
+        #
+        if not meta or "tags" not in meta:
+            return {}
+        #
+        result = {
+            "TagSet": [],
+        }
+        #
+        for key, value in meta["tags"].items():
+            result["TagSet"].append({
+                "Key": key,
+                "Value": value,
+            })
+        #
+        return result
 
     def set_bucket_tags(self, bucket, tags):
-        log.info("set_bucket_tags(%s, %s)", bucket, tags)
+        meta = self._load_meta(bucket)
+        #
+        if "tags" not in meta:
+            meta["tags"] = {}
+        #
+        meta["tags"].update(tags)
+        #
+        self._save_meta(bucket, meta)
 
     def select_object_content(self, bucket, file_name, expression_addon=""):
         log.info("select_object_content(%s, %s, %s)", bucket, file_name, expression_addon)
@@ -199,7 +297,11 @@ class EngineBase(metaclass=EngineMeta):
 
     def is_file_exist(self, bucket, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, bucket_name, file_name)
+        path = os.path.join(
+            self.bucket_path,
+            self._fs_encode_name(bucket_name),
+            self._fs_encode_name(file_name)
+        )
         #
         return os.path.exists(path)
 

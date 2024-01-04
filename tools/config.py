@@ -129,6 +129,9 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("SECRETS_FILESYSTEM_PATH", "str", "/tmp/secrets"),
                 ("STORAGE_ENGINE", "str", "s3"),
                 ("STORAGE_FILESYSTEM_PATH", "str", "/tmp/storage"),
+                ("STORAGE_FILESYSTEM_ENCODER", "str", "base64"),
+                ("STORAGE_LIBCLOUD_DRIVER", "str", "LOCAL"),
+                ("STORAGE_LIBCLOUD_PARAMS", "any", {"kwargs": {"key": "/tmp/storage"}}),
             )
         )
         #
