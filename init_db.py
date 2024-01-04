@@ -4,5 +4,5 @@ from tools import db
 
 def init_db():
     from .models import vault
+    from .models import secrets
     db.get_shared_metadata().create_all(bind=db.engine)
-

@@ -53,7 +53,11 @@ class AbstractBaseMixin:
 
     @staticmethod
     def commit() -> None:
-        session.commit()
+        try:
+            session.commit()
+        except:  # pylint: disable=W0702
+            self.rollback()
+            raise
 
     def add(self, with_session: Optional = None) -> None:
         session.add(self)
@@ -77,4 +81,8 @@ class AbstractBaseMixin:
 
 def bulk_save(objects):
     session.bulk_save_objects(objects)
-    session.commit()
+    try:
+        session.commit()
+    except:  # pylint: disable=W0702
+        session.rollback()
+        raise

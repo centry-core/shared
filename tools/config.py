@@ -17,7 +17,7 @@
 """ Config """
 
 import json
-from pylon.core.tools import log
+from pylon.core.tools import log  # pylint: disable=E0401
 from ..patterns import SingletonABC
 
 
@@ -123,11 +123,12 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 # Used in tools/data_tools/files.py
                 ("TASKS_UPLOAD_FOLDER", "str", "/tmp/tasks"),
                 # Transitional (next, new, NG+) settings
-                ("STORAGE_ENGINE", "str", "s3"),
-                ("SECRETS_ENGINE", "str", "vault"),
                 ("CENTRY_USE_INFLUX", "bool", False),
+                ("SECRETS_ENGINE", "str", "vault"),
+                ("SECRETS_MASTER_KEY", "str", None),
+                ("SECRETS_FILESYSTEM_PATH", "str", "/tmp/secrets"),
+                ("STORAGE_ENGINE", "str", "s3"),
                 ("MOCK_STORAGE_PATH", "str", "/tmp/mock/storage"),
-                ("MOCK_SECRETS_PATH", "str", "/tmp/mock/secrets"),
             )
         )
         #
