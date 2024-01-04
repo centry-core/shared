@@ -294,6 +294,7 @@ class EngineBase(metaclass=EngineMeta):
         self._save_meta(bucket, meta)
 
     def select_object_content(self, bucket, file_name, expression_addon=""):
+        # TODO: implement using py-partiql-parser or similiar
         log.info("select_object_content(%s, %s, %s)", bucket, file_name, expression_addon)
         return []
 
@@ -354,3 +355,6 @@ class AdminEngine(EngineBase):
     @property
     def bucket_prefix(self):
         return "p--administration."
+
+
+# TODO: engine init() and retention watcher thread
