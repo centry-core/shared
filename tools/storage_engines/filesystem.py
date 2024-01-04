@@ -129,7 +129,9 @@ class EngineBase(metaclass=EngineMeta):
         if retention_days:
             self.configure_bucket_lifecycle(bucket_name, retention_days)
         #
-        # No return dict data emulated
+        return {
+            "Location": f"/{bucket_name}"
+        }
 
     def list_files(self, bucket, next_continuation_token=None):
         _ = next_continuation_token
@@ -172,7 +174,7 @@ class EngineBase(metaclass=EngineMeta):
         #
         throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
         #
-        # No return response data emulated
+        # NB: No return response data emulated
 
     def download_file(self, bucket, file_name, project_id=None):
         bucket_name = self.format_bucket_name(bucket)
