@@ -101,7 +101,7 @@ class EngineBase(metaclass=EngineMeta):
         path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
         #
         if os.path.exists(path):
-            with open(self.storage, "rb") as file:
+            with open(path, "rb") as file:
                 return json.load(file)
         #
         return {}
