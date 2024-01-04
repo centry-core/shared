@@ -128,7 +128,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("SECRETS_MASTER_KEY", "str", None),
                 ("SECRETS_FILESYSTEM_PATH", "str", "/tmp/secrets"),
                 ("STORAGE_ENGINE", "str", "s3"),
-                ("MOCK_STORAGE_PATH", "str", "/tmp/mock/storage"),
+                ("STORAGE_FILESYSTEM_PATH", "str", "/tmp/storage"),
             )
         )
         #

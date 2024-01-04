@@ -28,18 +28,18 @@ from tools import config as c  # pylint: disable=E0401
 from ..minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
 
 
-class MockMeta(type):
-    """ Client meta class """
+class EngineMeta(type):
+    """ Engine meta class """
 
     def __getattr__(cls, name):
-        log.info("cls.__getattr__(%s)", name)
+        log.info("StorageEngine.cls.__getattr__(%s)", name)
 
 
-class EngineBase(metaclass=MockMeta):
-    """ Client mock / debug base class """
+class EngineBase(metaclass=EngineMeta):
+    """ Engine base class """
 
     def __getattr__(self, name):
-        log.info("base.__getattr__(%s)", name)
+        log.info("StorageEngine.base.__getattr__(%s)", name)
 
     TASKS_BUCKET = "tasks"
 
@@ -48,8 +48,8 @@ class EngineBase(metaclass=MockMeta):
         #
         self.event_manager = context.event_manager
         #
-        self.bucket_path = os.path.join(c.MOCK_STORAGE_PATH, "bucket")
-        self.meta_path = os.path.join(c.MOCK_STORAGE_PATH, "meta")
+        self.bucket_path = os.path.join(c.STORAGE_FILESYSTEM_PATH, "bucket")
+        self.meta_path = os.path.join(c.STORAGE_FILESYSTEM_PATH, "meta")
         #
         os.makedirs(self.bucket_path, exist_ok=True)
         os.makedirs(self.meta_path, exist_ok=True)
@@ -205,7 +205,7 @@ class EngineBase(metaclass=MockMeta):
 
 
 class Engine(EngineBase):
-    """ Client mock / debug class """
+    """ Engine class """
 
     def __init__(self, project, integration_id=None, is_local=True, **kwargs):
         _ = kwargs
@@ -226,7 +226,7 @@ class Engine(EngineBase):
             integration_id=None, is_local=True, rpc_manager=None,
             **kwargs
     ):
-        log.info("from_project_id(%s, %s, %s, %s, %s)", project_id, integration_id, is_local, rpc_manager, kwargs)  # pylint: disable=C0301
+        _ = kwargs
         #
         if not rpc_manager:
             rpc_manager = context.rpc_manager
@@ -236,7 +236,7 @@ class Engine(EngineBase):
 
 
 class AdminEngine(EngineBase):
-    """ Client mock / debug class """
+    """ Engine admin class """
 
     def __init__(self, integration_id=None, **kwargs):
         _ = kwargs
