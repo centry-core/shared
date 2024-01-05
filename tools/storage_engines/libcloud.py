@@ -16,6 +16,7 @@
 
 """ Storage engine impl """
 
+import os
 import sys
 import json
 import time
@@ -62,6 +63,10 @@ class EngineBase(metaclass=EngineMeta):
         #
         driver_args = driver_params.get("args", [])
         driver_kwargs = driver_params.get("kwargs", {})
+        #
+        if c.STORAGE_LIBCLOUD_DRIVER == "LOCAL":
+            base = driver_kwargs.get("key")
+            os.makedirs(base, exist_ok=True)
         #
         self.driver = driver_cls(*driver_args, **driver_kwargs)
 
