@@ -124,7 +124,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("TASKS_UPLOAD_FOLDER", "str", "/tmp/tasks"),
                 # Transitional (next, new, NG+) settings
                 ("CENTRY_USE_INFLUX", "bool", False),
-                ("SECRETS_ENGINE", "str", "vault"),
+                ("SECRETS_ENGINE", "str", "managed_vault"),
                 ("SECRETS_MASTER_KEY", "str", None),
                 ("SECRETS_FILESYSTEM_PATH", "str", "/tmp/secrets"),
                 ("STORAGE_ENGINE", "str", "s3"),

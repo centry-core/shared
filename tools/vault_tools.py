@@ -433,7 +433,7 @@ class HashiCorpVaultClient:
 
 log.info("Using secrets engine: %s", c.SECRETS_ENGINE)
 #
-if c.SECRETS_ENGINE == "vault":
+if c.SECRETS_ENGINE == "managed_vault":
     VaultClient = HashiCorpVaultClient
 else:
     try:
