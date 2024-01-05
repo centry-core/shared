@@ -132,6 +132,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("STORAGE_FILESYSTEM_ENCODER", "str", "base64"),
                 ("STORAGE_LIBCLOUD_DRIVER", "str", "LOCAL"),
                 ("STORAGE_LIBCLOUD_PARAMS", "any", {"kwargs": {"key": "/tmp/storage"}}),
+                ("STORAGE_LIBCLOUD_ENCODER", "str", None),
             )
         )
         #
