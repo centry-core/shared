@@ -122,6 +122,10 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("DATABASE_ENGINE_OPTIONS", "dict", None),
                 # Used in tools/data_tools/files.py
                 ("TASKS_UPLOAD_FOLDER", "str", "/tmp/tasks"),
+                # New arbiter EventNode types
+                ("SIO_URL", "str", ""),
+                ("SIO_PASSWORD", "str", ""),
+                ("SIO_SSL_VERIFY", "bool", False),
                 # Transitional (next, new, NG+) settings
                 ("CENTRY_USE_INFLUX", "bool", False),
                 ("SECRETS_ENGINE", "str", "managed_vault"),
