@@ -191,14 +191,19 @@ class APIBase(Resource):
             'Calling proxy method: [%s] mode: [%s] | %s',
             method, mode, kwargs
         )
-        try:
-            return getattr(self.mode_handlers[mode](self, mode), method)(**kwargs)
-        except KeyError:
+        handler = self.mode_handlers.get(mode)
+        if not handler:
+            log.warning(f'api handler not found for mode: {mode}')
             abort(404)
+        method = getattr(handler(self, mode), method)
+        if not method:
+            log.warning(f'api method not found for handler: {handler} in mode: {mode}')
+            abort(404)
+        return method(**kwargs)
 
     def __init__(self, module):
         self.module = module
-        log.info('APIBase INIT %s | %s', self.mode_handlers, self.url_params)
+        log.info('APIBase init %s | %s', self.mode_handlers, self.url_params)
 
     def get(self, **kwargs):
         return self.proxy_method('get', **kwargs)
@@ -226,7 +231,7 @@ class APIModeHandler:
             return self.__dict__[item]
         except KeyError:
             if item in ['get', 'post', 'put', 'delete', 'head', 'options', 'patch']:
-                abort(404)
+                return None
             return getattr(self._api, item)
 
 
