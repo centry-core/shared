@@ -276,7 +276,10 @@ def endpoint_metrics(function):
             def send_metrics(response):
                 payload['run_time'] = time.perf_counter() - start_time
                 payload['status_code'] = response.status_code
-                payload['response'] = response.get_data(as_text=True)
+                try:
+                    payload['response'] = response.get_data(as_text=True)
+                except RuntimeError:
+                    payload['response'] = None
                 rpc_tools.EventManagerMixin().event_manager.fire_event('usage_api_monitor', payload)
                 return response
             return function(*args, **kwargs)
