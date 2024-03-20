@@ -56,7 +56,7 @@ class AbstractBaseMixin:
         try:
             session.commit()
         except:  # pylint: disable=W0702
-            self.rollback()
+            session.rollback()
             raise
 
     def add(self, with_session: Optional = None) -> None:
