@@ -20,6 +20,7 @@ import json
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pylon.core.tools import log
 
@@ -48,6 +49,8 @@ class AbstractBaseMixin:
                 value = getattr(self, column.name)
                 if isinstance(value, datetime):
                     value = value.isoformat()
+                elif isinstance(value, UUID):
+                    value = str(value)
                 result[column.name] = value
         return result
 
