@@ -98,7 +98,7 @@ class AbstractBaseMixin:
 
 
 def bulk_save(objects):
-    with with_project_schema_session as s:
+    with with_project_schema_session(None) as s:
         s.bulk_save_objects(objects)
         try:
             s.commit()
