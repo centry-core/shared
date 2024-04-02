@@ -10,8 +10,33 @@ engine = create_engine(c.DATABASE_URI, **c.DATABASE_ENGINE_OPTIONS)
 with engine.connect() as conn:
     conn.execute(CreateSchema(c.POSTGRES_SCHEMA, if_not_exists=True))
     conn.commit()
-#
-session = scoped_session(sessionmaker(bind=engine))
+
+
+def get_schema_translate_map(project_id: int | None) -> dict | None:
+    if project_id:
+        from tools import project_constants as pc
+        template = pc['PROJECT_SCHEMA_TEMPLATE']
+        return {
+            c.POSTGRES_TENANT_SCHEMA: template.format(project_id),
+            # c.POSTGRES_SCHEMA: c.POSTGRES_SCHEMA
+        }
+    return None
+
+
+def get_project_schema_session(project_id: int | None):
+    schema_translate_map = get_schema_translate_map(project_id)
+    connectable = engine.execution_options(schema_translate_map=schema_translate_map)
+    return scoped_session(sessionmaker(bind=connectable))
+
+
+# class SessionMeta(DeclarativeMeta):
+#     def __init__(cls, name, bases, attrs):
+#         super().__init__(name, bases, attrs)
+#         cls.session = get_project_schema_session(None)
+#         cls.query = cls.session.query_property(query_cls=BaseQuery)
+
+
+session = get_project_schema_session(None)
 Base = declarative_base()
 Base.query = session.query_property(query_cls=BaseQuery)
 
@@ -39,31 +64,11 @@ def get_tenant_specific_metadata():
     return meta
 
 
-def get_schema_translate_map(project_id: int | None) -> dict | None:
-    if project_id:
-        from tools import project_constants as pc
-        template = pc['PROJECT_SCHEMA_TEMPLATE']
-        return {
-            c.POSTGRES_TENANT_SCHEMA: template.format(project_id),
-            # c.POSTGRES_SCHEMA: c.POSTGRES_SCHEMA
-        }
-    return None
-
-
-def get_project_schema_session(project_id: int | None):
-    schema_translate_map = get_schema_translate_map(project_id)
-    connectable = engine.execution_options(schema_translate_map=schema_translate_map)
-    return scoped_session(sessionmaker(bind=connectable))
-
-
 @contextmanager
 def with_project_schema_session(project_id: int | None):
-    # schema_translate_map = get_schema_translate_map(project_id)
-    # connectable = engine.execution_options(schema_translate_map=schema_translate_map)
     db = None
     try:
         db = get_project_schema_session(project_id)
-        # db = scoped_session(sessionmaker(bind=connectable))
         yield db
     finally:
         if db:

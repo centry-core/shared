@@ -24,8 +24,10 @@ from uuid import UUID
 
 from pylon.core.tools import log
 
-from .db import session
 from tools import config as c
+
+from .db import with_project_schema_session, session, get_project_schema_session
+from flask_sqlalchemy import BaseQuery
 
 
 def sqlalchemy_mapping_to_dict(obj):
@@ -34,7 +36,19 @@ def sqlalchemy_mapping_to_dict(obj):
 
 
 class AbstractBaseMixin:
-    _session = session
+
+    def __new__(cls, *args, **kwargs):
+        instance = super(AbstractBaseMixin, cls).__new__(cls)
+        # instance.session = session
+        instance.session = get_project_schema_session(None)
+        instance.query = session.query_property(query_cls=BaseQuery)
+        # log.info(f'+ AbstractBaseMixin s:{id(instance.session)} q:{id(instance.query)}')
+        return instance
+
+    def __del__(self):
+        # log.info(f'- AbstractBaseMixin s:{id(self.session)} q:{id(self.query)}')
+        self.session.remove()
+
     __table__ = None
     __table_args__ = {"schema": c.POSTGRES_SCHEMA}
 
@@ -51,31 +65,32 @@ class AbstractBaseMixin:
                     value = value.isoformat()
                 elif isinstance(value, UUID):
                     value = str(value)
+                elif isinstance(value, bytes):
+                    value = str(value)
                 result[column.name] = value
         return result
 
-    @staticmethod
-    def commit() -> None:
+    def commit(self) -> None:
         try:
-            session.commit()
+            self.session.commit()
         except:  # pylint: disable=W0702
-            session.rollback()
+            self.session.rollback()
             raise
 
     def add(self, with_session: Optional = None) -> None:
-        session.add(self)
+        self.session.add(self)
 
     def insert(self, with_session: Optional = None) -> None:
         self.add()
         self.commit()
 
     def delete(self, commit: bool = True, with_session: Optional = None) -> None:
-        session.delete(self)
+        self.session.delete(self)
         if commit:
             self.commit()
 
     def rollback(self, with_session: Optional = None):
-        session.rollback()
+        self.session.rollback()
 
     @property
     def serialized(self):
@@ -83,9 +98,10 @@ class AbstractBaseMixin:
 
 
 def bulk_save(objects):
-    session.bulk_save_objects(objects)
-    try:
-        session.commit()
-    except:  # pylint: disable=W0702
-        session.rollback()
-        raise
+    with with_project_schema_session as s:
+        s.bulk_save_objects(objects)
+        try:
+            s.commit()
+        except:  # pylint: disable=W0702
+            s.rollback()
+            raise
