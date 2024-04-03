@@ -31,6 +31,7 @@ from pylon.core.tools import log  # pylint: disable=E0401
 from tools import context  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
 
+from .. import db
 from ..minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
 from ...models.storage import StorageMeta
 
@@ -219,9 +220,10 @@ class EngineBase(metaclass=EngineMeta):
         bucket_name = self.format_bucket_name(bucket)
         bucket_key = self._fs_encode_name(bucket_name)
         #
-        meta_obj = StorageMeta.query.get(bucket_key)
-        if meta_obj is not None:
-            meta_obj.delete()
+        with db.with_project_schema_session(None) as session:
+            meta_obj = session.query(StorageMeta).where(StorageMeta.id == bucket_key).first()
+            if meta_obj is not None:
+                session.delete(meta_obj)
         #
         container = self.driver.get_container(bucket_key)
         self.driver.delete_container(container)
