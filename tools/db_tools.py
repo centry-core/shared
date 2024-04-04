@@ -40,8 +40,8 @@ class AbstractBaseMixin:
     def __new__(cls, *args, **kwargs):
         instance = super(AbstractBaseMixin, cls).__new__(cls)
         # instance.session = session
-        instance.session = get_project_schema_session(None)
-        instance.query = session.query_property(query_cls=BaseQuery)
+        instance.session = session
+        # instance.query = session.query_property(query_cls=BaseQuery)
         # log.info(f'+ AbstractBaseMixin s:{id(instance.session)} q:{id(instance.query)}')
         return instance
 
