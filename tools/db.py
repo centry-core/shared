@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import closing
 from flask_sqlalchemy import BaseQuery
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.schema import CreateSchema
@@ -64,12 +64,7 @@ def get_tenant_specific_metadata():
     return meta
 
 
-@contextmanager
-def with_project_schema_session(project_id: int | None):
-    db = None
-    try:
-        db = get_project_schema_session(project_id)
-        yield db
-    finally:
-        if db:
-            db.close()
+def get_session(project_id: int | None = None):
+    return closing(get_project_schema_session(project_id))
+
+with_project_schema_session = get_session
