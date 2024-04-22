@@ -312,10 +312,13 @@ class EngineBase(metaclass=EngineMeta):
 class Engine(EngineBase):
     """ Engine class """
 
-    def __init__(self, project, integration_id=None, is_local=True, **kwargs):
+    def __init__(self, project: dict, integration_id=None, is_local=True, **kwargs):
         _ = kwargs
         #
-        self.project = project
+        if isinstance(project, dict):
+            self.project = project
+        else:
+            self.project = project.to_json()
         self.integration_id = integration_id
         self.is_local = is_local
         #
@@ -323,11 +326,11 @@ class Engine(EngineBase):
 
     @property
     def bucket_prefix(self):
-        return f"p--{self.project.id}."
+        return f"p--{self.project['id']}."
 
     @classmethod
     def from_project_id(
-            cls, project_id,
+            cls, project_id: int,
             integration_id=None, is_local=True, rpc_manager=None,
             **kwargs
     ):
@@ -336,7 +339,7 @@ class Engine(EngineBase):
         if not rpc_manager:
             rpc_manager = context.rpc_manager
         #
-        project = rpc_manager.call.project_get_or_404(project_id=project_id)
+        project = rpc_manager.call.project_get_by_id(project_id=project_id)
         return cls(project, integration_id, is_local)
 
 

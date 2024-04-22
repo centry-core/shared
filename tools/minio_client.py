@@ -18,7 +18,7 @@ from .minio_tools import space_monitor, throughput_monitor
 class MinioClientABC(ABC, EventManagerMixin):
     PROJECT_SECRET_KEY: str = "minio_aws_access"
     TASKS_BUCKET: str = "tasks"
-    project = None
+    project: dict | None = None
 
     def __init__(self,
                  aws_access_key_id: str = c.MINIO_ACCESS,
@@ -41,7 +41,7 @@ class MinioClientABC(ABC, EventManagerMixin):
         try:
             if self.project:
                 settings = rpc_manager.timeout(2).integrations_get_s3_settings(
-                    self.project.id, integration_id, is_local)
+                    self.project['id'], integration_id, is_local)
             else:
                 settings = rpc_manager.timeout(2).integrations_get_s3_admin_settings(
                     integration_id)
@@ -264,14 +264,17 @@ class S3MinioClient(MinioClientABC):
                         **kwargs):
         if not rpc_manager:
             rpc_manager = RpcMixin().rpc
-        project = rpc_manager.call.project_get_or_404(project_id=project_id)
+        project = rpc_manager.call.project_get_by_id(project_id=project_id)
         return cls(project, integration_id, is_local)
 
-    def __init__(self, project,
+    def __init__(self, project: dict,
                  integration_id: Optional[int] = None,
                  is_local: bool = True,
                  **kwargs):
-        self.project = project
+        if isinstance(project, dict):
+            self.project = project
+        else:
+            self.project = project.to_json()
         self.integration_id = integration_id
         self.is_local = is_local
         access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
@@ -284,7 +287,7 @@ class S3MinioClient(MinioClientABC):
 
     @property
     def bucket_prefix(self) -> str:
-        return f'p--{self.project.id}.'
+        return f'p--{self.project["id"]}.'
 
 #
 # Select active (compat) client for storage

@@ -15,7 +15,7 @@ def space_monitor(f):
         result = f(*args, **kwargs)
         size_after = client.get_file_size(bucket, filename)
         payload = {
-            'project_id': client.project.id if client.project else None,
+            'project_id': client.project['id'] if client.project else None,
             'current_delta': size_after - size_before, 
             'integration_id': client.integration_id,
             'is_local': client.is_local
@@ -31,7 +31,7 @@ def throughput_monitor(client, file_size: int, project_id: int = None):
     '''
     if client.integration_id:
         payload = {
-            'project_id': client.project.id if client.project else project_id,
+            'project_id': client.project['id'] if client.project else project_id,
             'file_size': file_size, 
             'integration_id': client.integration_id,
             'is_local': client.is_local
