@@ -26,7 +26,10 @@ def get_schema_translate_map(project_id: int | None) -> dict | None:
 def get_project_schema_sessionmaker(project_id: int | None):
     schema_translate_map = get_schema_translate_map(project_id)
     connectable = engine.execution_options(schema_translate_map=schema_translate_map)
-    return sessionmaker(bind=connectable)
+    return sessionmaker(
+        bind=connectable,
+        expire_on_commit=False,
+    )
 
 
 def get_project_schema_session(project_id: int | None):
