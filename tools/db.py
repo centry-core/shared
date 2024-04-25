@@ -23,10 +23,15 @@ def get_schema_translate_map(project_id: int | None) -> dict | None:
     return None
 
 
-def get_project_schema_session(project_id: int | None):
+def get_project_schema_sessionmaker(project_id: int | None):
     schema_translate_map = get_schema_translate_map(project_id)
     connectable = engine.execution_options(schema_translate_map=schema_translate_map)
-    return scoped_session(sessionmaker(bind=connectable))
+    return sessionmaker(bind=connectable)
+
+
+def get_project_schema_session(project_id: int | None):
+    project_sessionmaker = get_project_schema_sessionmaker(project_id)
+    return project_sessionmaker()
 
 
 # class SessionMeta(DeclarativeMeta):
@@ -36,7 +41,7 @@ def get_project_schema_session(project_id: int | None):
 #         cls.query = cls.session.query_property(query_cls=BaseQuery)
 
 
-session = get_project_schema_session(None)
+session = scoped_session(get_project_schema_sessionmaker(None))
 Base = declarative_base()
 Base.query = session.query_property(query_cls=BaseQuery)
 
