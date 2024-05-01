@@ -28,6 +28,7 @@ from pydantic import BaseModel, constr, ValidationError
 from pylon.core.tools import log
 from jinja2 import Template, Environment, nodes
 
+from . import db
 from .rpc_tools import RpcMixin
 from ..models.vault import Vault
 
@@ -143,7 +144,8 @@ class HashiCorpVaultClient:
     @property
     def db_data(self) -> VaultDbModel:
         if not self._db_data:
-            vault_db = Vault.query.get(c.VAULT_DB_PK)
+            with db.get_session() as session:
+                vault_db = session.query(Vault).get(c.VAULT_DB_PK)
             if vault_db is None:
                 self._db_data = HashiCorpVaultClient.init_vault()
             else:
@@ -169,7 +171,8 @@ class HashiCorpVaultClient:
     def init_vault() -> VaultDbModel:
         """ Initialize Vault """
         log.info('Initializing vault')
-        vault_db_obj = Vault.query.get(c.VAULT_DB_PK)
+        with db.get_session() as session:
+            vault_db_obj = session.query(Vault).get(c.VAULT_DB_PK)
         if vault_db_obj is None:
             client = hvac.Client(url=c.VAULT_URL)
             if client.sys.is_initialized():
