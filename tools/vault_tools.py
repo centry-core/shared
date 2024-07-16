@@ -447,24 +447,3 @@ else:
     except:  # pylint: disable=W0702
         log.exception("Failed to set secrets engine: %s", c.SECRETS_ENGINE)
         raise
-
-
-class SecretString(SecretField):
-    from_secrets: bool = True
-    value: str
-
-    def __init__(self, value: str):
-        self._secret_value = value
-
-    def get_secret_value(self) -> Any:
-        return
-
-    def unsecret(self, project_id: Optional[int] = None):
-        if self.from_secrets:
-            if project_id:
-                client = VaultClient.from_project(project_id)
-            else:
-                client = VaultClient()
-            return client.unsecret(self.value)
-        else:
-            return self.value
