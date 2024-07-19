@@ -17,16 +17,15 @@
 #   limitations under the License.
 
 """ Secret engine base """
+import re
 
 import os
 import json
 
-from functools import wraps
+from functools import wraps, partial
 
 from pylon.core.tools import log  # pylint: disable=E0401
 from pylon.core.tools.context import Context as Holder  # pylint: disable=E0401
-
-from jinja2 import Template, Environment, nodes  # pylint: disable=E0401
 
 from tools import context  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
@@ -41,6 +40,8 @@ class EngineMeta(type):
 
 class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
     """ Engine base class """
+
+    _secret_pattern = re.compile(r'{{secret\.([A-Za-z0-9_]+)}}')
 
     def __getattr__(self, name):
         log.info("SecretEngine.__getattr__(%s)", name)
@@ -172,17 +173,17 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
 
     def __unsecret_string(self, value, secrets):
         if self.track_used_secrets:
-            env = Environment()
-            ast = env.parse(value)
-            for i in ast.find_all(nodes.Getattr):
-                n = i.find(nodes.Name)
-                if n.name == self.template_node_name:
-                    secret_value = secrets.get(i.attr)
-                    if secret_value:
-                        self.used_secrets.add(secret_value)
-        #
-        template = Template(value)
-        return template.render(secret=secrets)
+            for i in re.findall(self._secret_pattern, value):
+                secret_value = secrets.get(i)
+                if secret_value:
+                    self.used_secrets.add(secret_value)
+        replacer = partial(self._replacer, secrets=secrets)
+        return re.sub(self._secret_pattern, replacer, value)
+
+    def _replacer(self, match: re.Match, secrets: dict) -> str:
+        secret_key = match.group(1)
+        return str(secrets.get(secret_key, match.group(0)))
+
 
     def unsecret(self, value, secrets=None, **kwargs):
         _ = kwargs
