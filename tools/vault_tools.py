@@ -16,9 +16,10 @@
 #     limitations under the License.
 
 """ Vault tools """
+import re
 
 import importlib
-from functools import wraps
+from functools import wraps, partial
 from typing import Optional, Any, Union, List, Tuple
 
 import hvac  # actually comes from pylon
@@ -26,7 +27,7 @@ from hvac.exceptions import InvalidRequest
 from pydantic import BaseModel, constr, ValidationError
 
 from pylon.core.tools import log
-from jinja2 import Template, Environment, nodes
+from jinja2 import Template
 
 from . import db
 from .rpc_tools import RpcMixin
@@ -67,6 +68,8 @@ class VaultDbModel(BaseModel):
 
 
 class HashiCorpVaultClient:
+    _secret_pattern = re.compile(r'{{secret\.([A-Za-z0-9_]+)}}')
+
     approle_auth_path: str = 'carrier-approle'
     secrets_path: str = 'project-secrets'
     admin_kv_mount: str = f'kv-for-{c.VAULT_ADMINISTRATION_NAME}'
@@ -405,18 +408,18 @@ class HashiCorpVaultClient:
             json[key] = self.unsecret(json[key], secrets, **kwargs)
         return json
 
-    def __unsecret_string(self, value: str, secrets: dict) -> str:
+    def __unsecret_string(self, value, secrets):
         if self.track_used_secrets:
-            env = Environment()
-            ast = env.parse(value)
-            for i in ast.find_all(nodes.Getattr):
-                n = i.find(nodes.Name)
-                if n.name == self.template_node_name:
-                    secret_value = secrets.get(i.attr)
-                    if secret_value:
-                        self.used_secrets.add(secret_value)
-        template = Template(value)
-        return template.render(secret=secrets)
+            for i in re.findall(self._secret_pattern, value):
+                secret_value = secrets.get(i)
+                if secret_value:
+                    self.used_secrets.add(secret_value)
+        replacer = partial(self._replacer, secrets=secrets)
+        return re.sub(self._secret_pattern, replacer, value)
+
+    def _replacer(self, match: re.Match, secrets: dict) -> str:
+        secret_key = match.group(1)
+        return str(secrets.get(secret_key, match.group(0)))
 
     def unsecret(self, value: Any, secrets: Optional[dict] = None, **kwargs) -> Any:
         if not secrets:

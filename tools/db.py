@@ -75,4 +75,5 @@ def get_tenant_specific_metadata():
 def get_session(project_id: int | None = None):
     return closing(get_project_schema_session(project_id))
 
+
 with_project_schema_session = get_session

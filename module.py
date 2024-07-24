@@ -86,6 +86,15 @@ class Module(module.ModuleModel):
 
         self.descriptor.register_tool('shared', self)
 
+        from .tools.serialize import serialize
+        self.descriptor.register_tool('serialize', serialize)
+
+        from .tools.secret_field import SecretString
+        self.descriptor.register_tool('SecretString', SecretString)
+
+        from .tools.secret_field import store_secrets
+        self.descriptor.register_tool('store_secrets', store_secrets)
+
         self.descriptor.init_api()
 
     def deinit(self):  # pylint: disable=R0201
