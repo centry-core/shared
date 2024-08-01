@@ -151,13 +151,13 @@ def get_shared_metadata():
     return meta
 
 
-# DB: not used
-# def get_tenant_specific_metadata():
-#     meta = MetaData(schema=c.POSTGRES_TENANT_SCHEMA)
-#     for table in Base.metadata.tables.values():
-#         if table.schema == c.POSTGRES_TENANT_SCHEMA:
-#             table.tometadata(meta)
-#     return meta
+# DB: used (by flows)
+def get_tenant_specific_metadata():
+    meta = MetaData(schema=c.POSTGRES_TENANT_SCHEMA)
+    for table in Base.metadata.tables.values():
+        if table.schema == c.POSTGRES_TENANT_SCHEMA:
+            table.tometadata(meta)
+    return meta
 
 
 # DB: used
