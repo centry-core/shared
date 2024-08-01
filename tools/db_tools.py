@@ -24,7 +24,7 @@ from uuid import UUID
 
 from pylon.core.tools import log
 
-from tools import config as c
+from tools import config as c, context
 
 from .db import with_project_schema_session, session, get_project_schema_session
 from flask_sqlalchemy import BaseQuery
@@ -39,15 +39,8 @@ class AbstractBaseMixin:
 
     def __new__(cls, *args, **kwargs):
         instance = super(AbstractBaseMixin, cls).__new__(cls)
-        # instance.session = session
         instance.session = session
-        # instance.query = session.query_property(query_cls=BaseQuery)
-        # log.info(f'+ AbstractBaseMixin s:{id(instance.session)} q:{id(instance.query)}')
         return instance
-
-    def __del__(self):
-        # log.info(f'- AbstractBaseMixin s:{id(self.session)} q:{id(self.query)}')
-        self.session.remove()
 
     __table__ = None
     __table_args__ = {"schema": c.POSTGRES_SCHEMA}

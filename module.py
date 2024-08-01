@@ -61,10 +61,6 @@ class Module(module.ModuleModel):
         from .init_db import init_db
         init_db()
 
-        @self.context.app.teardown_appcontext
-        def shutdown_session(exception=None):
-            db.session.remove()
-
         from .tools.minio_client import MinioClient, MinioClientAdmin
         self.descriptor.register_tool('MinioClient', MinioClient)
         self.descriptor.register_tool('MinioClientAdmin', MinioClientAdmin)
