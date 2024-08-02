@@ -98,10 +98,12 @@ class SessionProxyMeta(type):
 
 
 # DB: proxy
-class SessionProxy(metaclass=SessionProxyMeta):  # pylint: disable=R0902
+class SessionProxy(metaclass=SessionProxyMeta):  # pylint: disable=R0902,R0903
     """ Proxy class """
 
     def __getattr__(self, name):
+        db_support.check_local_entities()
+        #
         if context.local.db_session is None:
             log.info("Creating new local session")
             db_support.create_local_session()
