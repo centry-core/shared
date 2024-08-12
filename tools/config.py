@@ -162,8 +162,8 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                     self.DATABASE_ENGINE_OPTIONS = {
                         "isolation_level": "READ COMMITTED",
                         "echo": False,
-                        "pool_size": 50,
-                        "max_overflow": 100,
+                        "pool_size": 25,
+                        "max_overflow": 25,
                         "pool_pre_ping": True
                     }
             else:
