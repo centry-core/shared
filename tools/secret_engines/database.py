@@ -31,21 +31,11 @@ class Engine(EngineBase):  # pylint: disable=R0902
     """ Engine class """
     # TODO: use project and system schemas here too
 
-    @staticmethod
-    def get_project_creds(project):
-        db_key = "unknown"
-        #
-        if project is None:
-            db_key = "admin"
-        elif isinstance(project, (int, str)):
-            project = context.rpc_manager.call.project_get_or_404(project_id=project)
-            db_key = f'project-{project.id}'
-        elif isinstance(project, dict):
-            db_key = f'project-{project["id"]}'
-        elif project is not None:
-            db_key = f'project-{project.id}'
-        #
-        return db_key
+    @property
+    def db_key(self):
+        if self.project_id is None:
+            return 'admin'
+        return f'project-{self.project_id}'
 
     def __init__(
             self, project=None,
@@ -53,8 +43,6 @@ class Engine(EngineBase):  # pylint: disable=R0902
             **kwargs
     ):
         super().__init__(project, fix_project_auth, track_used_secrets, **kwargs)
-        #
-        self.db_key = self.get_project_creds(project)
         #
         self.master_key = None
         if c.SECRETS_MASTER_KEY is not None:

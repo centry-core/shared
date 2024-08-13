@@ -16,8 +16,6 @@
 
 """ Secret engine impl """
 
-from tools import context  # pylint: disable=E0401
-
 from . import EngineBase
 
 
@@ -26,30 +24,11 @@ class Engine(EngineBase):  # pylint: disable=R0902
 
     storage = {}
 
-    @staticmethod
-    def get_project_creds(project):
-        secrets_key = "unknown"
-        #
-        if project is None:
-            secrets_key = "admin"
-        elif isinstance(project, (int, str)):
-            project = context.rpc_manager.call.project_get_or_404(project_id=project)
-            secrets_key = f'project-{project.id}'
-        elif isinstance(project, dict):
-            secrets_key = f'project-{project["id"]}'
-        elif project is not None:
-            secrets_key = f'project-{project.id}'
-        #
-        return secrets_key
-
-    def __init__(
-            self, project=None,
-            fix_project_auth=False, track_used_secrets=False,
-            **kwargs
-    ):
-        super().__init__(project, fix_project_auth, track_used_secrets, **kwargs)
-        #
-        self.secrets_key = self.get_project_creds(project)
+    @property
+    def secrets_key(self) -> str:
+        if self.project_id is None:
+            return 'admin'
+        return f'project-{self.project_id}'
 
     def _write(self, data):
         Engine.storage[self.secrets_key] = data

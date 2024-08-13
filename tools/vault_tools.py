@@ -31,6 +31,7 @@ from jinja2 import Template
 
 from . import db
 from .rpc_tools import RpcMixin
+from .secret_engines import get_project_id
 from ..models.vault import Vault
 
 from tools import config as c
@@ -75,22 +76,6 @@ class HashiCorpVaultClient:
     admin_kv_mount: str = f'kv-for-{c.VAULT_ADMINISTRATION_NAME}'
     template_node_name: str = 'secret'
 
-    @staticmethod
-    def get_project_creds(project: AnyProject) -> Tuple[dict, int]:
-        auth = None
-        vault_name = None
-        if isinstance(project, int) or isinstance(project, str):
-            project = RpcMixin().rpc.call.project_get_or_404(project_id=project)
-            auth = project.secrets_json
-            vault_name = project.id
-        elif isinstance(project, dict):
-            auth = project
-            vault_name = project['id']
-        elif project is not None:
-            auth = project.secrets_json
-            vault_name = project.id
-        return auth, vault_name
-
     @classmethod
     def from_project(cls, project: AnyProject, **kwargs):
         # This is here for compatibility. No need to init class form this method
@@ -102,19 +87,26 @@ class HashiCorpVaultClient:
         self.track_used_secrets = track_used_secrets
         self.used_secrets = set()
         self.auth: Optional[VaultAuth] = None
+
+        self.project_id = get_project_id(project)
+        self.is_administration = project is None
+
         if project is None:
-            self.is_administration = True
             self.vault_name = c.VAULT_ADMINISTRATION_NAME
-            self.project_id = None
         else:
-            self.is_administration = False
-            auth, vault_name = self.get_project_creds(project)
-            self.vault_name = vault_name
+            auth = None
+            if isinstance(project, int) or isinstance(project, str):
+                project = RpcMixin().rpc.call.project_get_or_404(project_id=project)
+                auth = project.secrets_json
+            elif isinstance(project, dict):
+                auth = project
+            elif project is not None:
+                auth = project.secrets_json
+            self.vault_name = self.project_id
             try:
                 self.auth = VaultAuth.parse_obj(auth)
             except ValidationError:
                 log.info('No vault auth data for project %s', project)
-            self.project_id = vault_name
 
         self.kv_mount = f'kv-for-{self.vault_name}'
         self.hidden_kv_mount = f'kv-for-hidden-{self.vault_name}'

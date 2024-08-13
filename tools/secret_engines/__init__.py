@@ -17,10 +17,9 @@
 #   limitations under the License.
 
 """ Secret engine base """
-import re
+from typing import Any, Optional
 
-import os
-import json
+import re
 
 from functools import wraps, partial
 
@@ -28,7 +27,18 @@ from pylon.core.tools import log  # pylint: disable=E0401
 from pylon.core.tools.context import Context as Holder  # pylint: disable=E0401
 
 from tools import context  # pylint: disable=E0401
-from tools import config as c  # pylint: disable=E0401
+
+
+def get_project_id(project: Any) -> Optional[int]:
+    if project is None:
+        return None
+    elif isinstance(project, (int, str)):
+        project = context.rpc_manager.call.project_get_or_404(project_id=project)
+        return project.id
+    elif isinstance(project, dict):
+        return project["id"]
+    elif project is not None:
+        return project.id
 
 
 class EngineMeta(type):
@@ -48,20 +58,18 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
 
     template_node_name = "secret"
 
-    @staticmethod
-    def get_project_creds(project):
-        raise RuntimeError("Not supported")
-
     @classmethod
     def from_project(cls, project, **kwargs):
         return cls(project=project, **kwargs)
 
     def __init__(
-            self, project=None,
-            fix_project_auth=False, track_used_secrets=False,
+            self, project: Any = None,
+            fix_project_auth: bool = False,
+            track_used_secrets: bool = False,
             **kwargs
     ):
         _ = project, fix_project_auth, kwargs
+        self.project_id = get_project_id(project)
         #
         self.track_used_secrets = track_used_secrets
         self.used_secrets = set()
@@ -99,6 +107,7 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             return func(self, *args, **kwargs)  # pylint: disable=E1102
+
         return wrapper
 
     def create_project_space(self, *args, **kwargs):
@@ -183,7 +192,6 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
     def _replacer(self, match: re.Match, secrets: dict) -> str:
         secret_key = match.group(1)
         return str(secrets.get(secret_key, match.group(0)))
-
 
     def unsecret(self, value, secrets=None, **kwargs):
         _ = kwargs

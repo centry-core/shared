@@ -30,26 +30,17 @@ from . import EngineBase
 class Engine(EngineBase):  # pylint: disable=R0902
     """ Engine class """
 
-    @staticmethod
-    def get_project_creds(project):
-        key_file_name = "unknown.key"
-        secrets_file_name = "unknown.secrets"
-        #
-        if project is None:
-            key_file_name = "admin.key"
-            secrets_file_name = "admin.secrets"
-        elif isinstance(project, (int, str)):
-            project = context.rpc_manager.call.project_get_or_404(project_id=project)
-            key_file_name = f'project-{project.id}.key'
-            secrets_file_name = f'project-{project.id}.secrets'
-        elif isinstance(project, dict):
-            key_file_name = f'project-{project["id"]}.key'
-            secrets_file_name = f'project-{project["id"]}.secrets'
-        elif project is not None:
-            key_file_name = f'project-{project.id}.key'
-            secrets_file_name = f'project-{project.id}.secrets'
-        #
-        return key_file_name, secrets_file_name
+    @property
+    def key_file_name(self) -> str:
+        if self.project_id is None:
+            return 'admin.key'
+        return f'project-{self.project_id}.key'
+
+    @property
+    def secrets_file_name(self) -> str:
+        if self.project_id is None:
+            return 'admin.secrets'
+        return f'project-{self.project_id}.secrets'
 
     def __init__(
             self, project=None,
@@ -57,11 +48,8 @@ class Engine(EngineBase):  # pylint: disable=R0902
             **kwargs
     ):
         super().__init__(project, fix_project_auth, track_used_secrets, **kwargs)
-        #
-        key_file_name, secrets_file_name = self.get_project_creds(project)
-        #
-        self.key_storage = os.path.join(c.SECRETS_FILESYSTEM_PATH, key_file_name)
-        self.secrets_storage = os.path.join(c.SECRETS_FILESYSTEM_PATH, secrets_file_name)
+        self.key_storage = os.path.join(c.SECRETS_FILESYSTEM_PATH, self.key_file_name)
+        self.secrets_storage = os.path.join(c.SECRETS_FILESYSTEM_PATH, self.secrets_file_name)
         #
         self.master_key = None
         if c.SECRETS_MASTER_KEY is not None:
