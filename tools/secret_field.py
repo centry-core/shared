@@ -104,7 +104,8 @@ class SecretString(SecretStr):
 def store_secrets(model_dict: dict, project_id: int):
     for field_name, field_value in model_dict.items():
         if isinstance(field_value, SecretStr):
-            field_value._project_id = project_id
-            field_value.store_secret()
+            if not field_value._is_secret:
+                field_value._project_id = project_id
+                field_value.store_secret()
         elif isinstance(field_value, dict):
             store_secrets(field_value, project_id)
