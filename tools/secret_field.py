@@ -11,6 +11,9 @@ from ..tools.vault_tools import VaultClient
 class SecretString(SecretStr):
     _secret_pattern = re.compile(r'^{{secret\.([A-Za-z0-9_]+)}}$')
 
+    def __bool__(self):
+       return bool(self._secret_value or self._secret_repr)
+
     def __len__(self) -> int:
         if self._secret_value is None:
             return 0
