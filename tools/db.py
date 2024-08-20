@@ -24,7 +24,7 @@ context.db.schema_mapper = schema_mapper
 
 
 # DB: transitional config injector
-if context.db.url == "sqlite://":
+if c.FORCE_INJECT_DB or context.db.url == "sqlite://":
     log.info("Injecting DB config")
     #
     db_support.close_local_session()
