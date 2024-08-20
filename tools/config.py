@@ -113,6 +113,8 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("POSTGRES_TENANT_SCHEMA", "str", "tenant"),
                 # Only for some tests
                 ("SQLITE_DB", "str", "sqlite.db"),
+                # Transitional for context.db != sqlite RAM
+                ("FORCE_INJECT_DB", "bool", False),
                 # Used in carrier-io/projects · tools/session_plugins.py
                 ("PROJECT_CACHE_PLUGINS", "str", "PROJECT_CACHE_PLUGINS"),
                 # Used in carrier-io/projects · tools/session_project.py
