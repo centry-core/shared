@@ -13,6 +13,9 @@
 #   limitations under the License.
 
 """ Module """
+
+import logging
+
 from pylon.core.tools import module, log  # pylint: disable=E0611,E0401
 
 
@@ -64,6 +67,7 @@ class Module(module.ModuleModel):
         from .tools.minio_client import MinioClient, MinioClientAdmin
         self.descriptor.register_tool('MinioClient', MinioClient)
         self.descriptor.register_tool('MinioClientAdmin', MinioClientAdmin)
+        logging.getLogger("botocore").setLevel(logging.INFO)
 
         from .tools.vault_tools import VaultClient
         self.descriptor.register_tool('VaultClient', VaultClient)
