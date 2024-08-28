@@ -12,7 +12,7 @@ class SecretString(SecretStr):
     _secret_pattern = re.compile(r'^{{secret\.([A-Za-z0-9_]+)}}$')
 
     def __bool__(self):
-       return bool(self._secret_value or self._secret_repr)
+        return bool(self._secret_value or self._secret_repr)
 
     def __len__(self) -> int:
         if self._secret_value is None:
@@ -115,6 +115,16 @@ class SecretString(SecretStr):
         if self._project_id != value:
             self._vault_client = None
         self._project_id = value
+
+    @classmethod
+    def parse_obj(cls, v: dict):
+        '''deprecated. here for compatibility'''
+        return cls(v)
+
+    @property
+    def from_secrets(self):
+        '''deprecated. here for compatibility'''
+        return self._is_secret
 
 
 def store_secrets(model_dict: dict, project_id: int) -> None:
