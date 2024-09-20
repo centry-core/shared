@@ -6,6 +6,7 @@ from pydantic import SecretStr
 from pydantic.validators import str_validator
 
 from ..tools.vault_tools import VaultClient
+from pylon.core.tools import log
 
 
 class SecretString(SecretStr):
@@ -86,6 +87,7 @@ class SecretString(SecretStr):
             raise ValueError(
                 'Secret value was not set. If you are still sure to change secret, pass force_set_secret=True'
             )
+        log.debug(f"Storing secret value: {self._secret_value} of {self._secret_repr}")
 
         # from pylon.core.tools import log
         # hs = self.vault_client.get_secrets()
@@ -138,3 +140,22 @@ def store_secrets(model_dict: dict, project_id: int) -> None:
                 field_value.store_secret()
         elif isinstance(field_value, dict):
             store_secrets(field_value, project_id)
+
+
+def store_secrets_replaced(model_dict: dict, model_dict_before: dict, project_id: int) -> None:
+    ''' Substitute old secret value with new one instead of storing a new secret'''
+
+    vault_client = None
+    for field_name, field_value in model_dict.items():
+        if isinstance(field_value, SecretString):
+            if not field_value._is_secret:
+                field_value_before = model_dict_before.get(field_name)
+                if isinstance(field_value_before, SecretString):
+                    field_value_before.set_value(field_value.get_secret_value())
+                    field_value = model_dict[field_name] = field_value_before
+                if vault_client is None:
+                    vault_client = VaultClient(project_id)
+                field_value.vault_client = vault_client
+                field_value.store_secret()
+        elif isinstance(field_value, dict):
+            store_secrets_replaced(field_value, model_dict_before.get(field_name, {}), project_id)
