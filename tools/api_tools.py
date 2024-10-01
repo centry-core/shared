@@ -17,6 +17,7 @@ from datetime import datetime
 from json import loads
 from typing import Union, Optional, Callable, Tuple
 from functools import wraps
+from urllib.parse import ParseResult, urlparse, urlunparse
 
 from pylon.core.tools import log
 from sqlalchemy import and_, SQLColumnExpression
@@ -306,3 +307,18 @@ def with_modes(url_params: list[str]) -> list:
                 params.add(f'<string:mode>/{i}')
         params.add(i)
     return list(params)
+
+
+def normalize_url(url: str):
+    parsed_url = urlparse(str(url))
+    normalized_url = urlunparse(
+        ParseResult(
+            scheme=parsed_url.scheme.lower(),
+            netloc=parsed_url.netloc.lower(),
+            path=parsed_url.path.rstrip('/'),
+            params=parsed_url.params,
+            query=parsed_url.query,
+            fragment=parsed_url.fragment
+        )
+    )
+    return normalized_url
