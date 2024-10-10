@@ -98,6 +98,9 @@ class Module(module.ModuleModel):
         from .tools.secret_field import store_secrets_replaced
         self.descriptor.register_tool('store_secrets_replaced', store_secrets_replaced)
 
+        from .tools import integration_tools
+        self.descriptor.register_tool('integration_tools', integration_tools)
+
         self.descriptor.init_api()
 
     def deinit(self):  # pylint: disable=R0201
