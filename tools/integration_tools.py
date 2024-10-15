@@ -9,61 +9,46 @@ from . import rpc_tools
 
 
 class ExternalIntegrationSupport(BaseModel):
-    integration_user_id: Optional[int] = None
-    integration_project_id: Optional[int] = None
-    integration_title: Optional[str] = None
+    integration_project_id: int
+    integration_title: str
 
     _integration_name = None
     _integration_fields = None
 
-    def dict_auto_exclude(self, **kwargs):
-        if self.integration_project_id is not None:
-            excluded = self._integration_fields
-            if kwargs.get('exclude') is None:
-                kwargs['exclude'] = set(excluded)
-            else:
-                kwargs['exclude'].update(excluded)
-        return super().dict(**kwargs)
+    def dict_integration_expanded(self, user_id: int, **kwargs):
+        """ Returns dict values with expanded external integration settings if exist"""
 
-    @root_validator(pre=True)
-    def validate_by_available_integration(cls, values):
-        assert all(
-            f is not None for f in (cls._integration_name, cls._integration_fields)
-        ), f"{cls} definition has missed integration fields"
+        base_dict = super().dict(**kwargs)
+        base_dict.pop('integration_project_id', None)
+        base_dict.pop('integration_title', None)
 
-        if not isinstance(cls._integration_fields, dict):
-            integration_fields = {x:x for x in cls._integration_fields}
+        if not isinstance(self._integration_fields, dict):
+            integration_fields = {x: x for x in self._integration_fields}
         else:
-            integration_fields = cls._integration_fields
-
-        title = values.get('integration_title')
-        integration_project_id = values.get('integration_project_id')
-
-        args = bool(title) + bool(integration_project_id)
-        if args == 1:
-            raise ValueError("both non-empty integration_project_id and integration_title are required or none of them")
-
-        if title is None:
-            return values
-
-        project_id = values.setdefault('integration_user_id', _get_current_user_or_none())
-        if not project_id:
-            raise ValueError("Missing integration_user_id field")
+            integration_fields = self._integration_fields
 
         partial_settings = {
-            'title': title
+            'title': self.integration_title
         }
         integration = rpc_tools.RpcMixin().rpc.call.integrations_find_first_integration_by_partial_settings(
-            project_id,
-            int(integration_project_id),
-            cls._integration_name,
+            user_id,
+            self.integration_project_id,
+            self._integration_name,
             partial_settings
         )
         if integration is None:
-            raise ValueError(f"Integration with '{title=}' does not exist")
+            raise ValueError(f"Integration with title={self.integration_title}' does not exist")
 
         for field, integration_field in integration_fields.items():
-            values[field] = integration.settings.get(integration_field)
+            base_dict[field] = integration.settings.get(integration_field)
+
+        return base_dict
+
+    @root_validator(pre=True)
+    def validate_inheritance(cls, values):
+        assert all(
+            f is not None for f in (cls._integration_name, cls._integration_fields)
+        ), f"{cls} definition has missed integration fields"
 
         return values
 
@@ -95,13 +80,3 @@ def generate_create_integration_settings_model_from(IntegrationModel, integratio
 
     CreateIntegrationModel._desc = integration_name
     return CreateIntegrationModel
-
-
-def _get_current_user_or_none():
-    from tools import auth
-    try:
-        user_id = auth.current_user().get('id')
-    except Exception as ex:
-        user_id = None
-
-    return user_id
