@@ -12,7 +12,9 @@ def formatted_value(obj: Any):
         return str(obj)
 
 
-def serialize(obj: Any, with_attrs: list | None = None) -> dict:
+def serialize(obj: Any, with_attrs: list | None = None) -> Any:
+    if isinstance(obj, (list, set, tuple)):
+        return [serialize(i, with_attrs=with_attrs) for i in obj]
     try:
         j = obj.json()
     except AttributeError:
