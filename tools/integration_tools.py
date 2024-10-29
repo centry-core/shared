@@ -48,19 +48,18 @@ def _find_config(
         partial_settings: dict,
         configurations: list,
 ):
-    rpc_call = rpc_tools.RpcMixin().rpc.call
-
     if configuration_personal:
         integrations = [i for i in configurations if i.get('name') == integration_name]
     else:
-        integrations = rpc_call.integrations_get_all_integrations_by_name(
+        integrations = rpc_tools.RpcMixin().rpc.call.integrations_get_all_integrations_by_name(
             project_id,
             integration_name
         )
+        integrations = [i.dict() for i in integrations]
 
     for i in integrations:
         for k, v in partial_settings.items():
-            if i.settings.get(k) != v:
+            if i['settings'].get(k) != v:
                 break
         else:
             return i
@@ -97,7 +96,7 @@ class ExternalIntegrationSupport(BaseModel):
             raise ValueError(f"Integration with title={self.configuration_title}' does not exist")
 
         for field, integration_field in integration_fields.items():
-            base_dict[field] = integration.settings.get(integration_field)
+            base_dict[field] = integration['settings'].get(integration_field)
 
         return base_dict
 
