@@ -50,7 +50,8 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("APP_IP", "str"),
                 # Used to set URLs; galloper_url in carrier-io/secrets · module.py
                 ("APP_HOST", "str"),
-                # Only used in carrier-io/shared · tools/loki_tools.py
+                # Only used in carrier-io/shared · tools/loki_tools.py;
+                # also use in centry_gaid cookie secure flag
                 ("APP_SCHEME", "str", "http"),
                 # Used in auth to set CORS headers
                 ("ALLOW_CORS", "bool", False),
