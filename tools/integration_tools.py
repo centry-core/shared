@@ -66,8 +66,8 @@ def _find_config(
 
 
 class ExternalIntegrationSupport(BaseModel):
-    configuration_personal: bool = False
-    configuration_title: str = None
+    configuration_personal: bool
+    configuration_title: str
 
     _integration_name = None
     _integration_fields = None
@@ -85,6 +85,8 @@ class ExternalIntegrationSupport(BaseModel):
         partial_settings = {
             'title': self.configuration_title
         }
+        log.debug(f'{self._integration_fields=}')
+        log.debug(f'{self.configuration_personal=}')
         integration = _find_config(
             project_id=project_id,
             configuration_personal=self.configuration_personal,
