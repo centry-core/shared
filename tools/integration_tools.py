@@ -6,6 +6,7 @@ from pydantic import (
 )
 
 from . import rpc_tools
+from pylon.core.tools import log
 
 
 def _find_first_configuration_by_partial_settings(
@@ -141,7 +142,7 @@ class ExternalIntegrationSupport(BaseModel):
         return values
 
 
-def generate_create_integration_settings_model_from(IntegrationModel, integration_name):
+def generate_create_integration_settings_model_from(IntegrationModel: BaseModel, integration_name: str) -> 'CreateIntegrationModel':
     class CreateIntegrationModel(IntegrationModel):
         project_id: Optional[int] = None
 
