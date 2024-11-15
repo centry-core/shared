@@ -1,3 +1,5 @@
+import traceback
+
 from contextlib import closing
 from flask_sqlalchemy import BaseQuery
 from sqlalchemy import create_engine, MetaData
@@ -105,7 +107,12 @@ class SessionProxy(metaclass=SessionProxyMeta):  # pylint: disable=R0902,R0903
         db_support.check_local_entities()
         #
         if context.local.db_session is None:
-            log.info("Creating new local session")
+            log.warning("Creating new local session")
+            #
+            log.debug("Local session stack:")
+            for stack_line in traceback.format_stack():
+                log.debug("%s", stack_line.strip())
+            #
             db_support.create_local_session()
         #
         return getattr(context.local.db_session, name)
