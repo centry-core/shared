@@ -76,6 +76,7 @@ class MinioClientABC(ABC, EventManagerMixin):
         ]
 
     def create_bucket(self, bucket: str, bucket_type=None, retention_days: Optional[int] = None) -> Optional[dict]:
+        response = None
         try:
             bucket_name = self.format_bucket_name(bucket)
             response = self.s3_client.create_bucket(
@@ -87,11 +88,14 @@ class MinioClientABC(ABC, EventManagerMixin):
                 self.set_bucket_tags(bucket=bucket, tags={'type': bucket_type})
             if retention_days:
                 self.configure_bucket_lifecycle(bucket_name, retention_days)
-            return response
         except ClientError as client_error:
+            response = str(client_error)
             log.warning(client_error)
         except Exception as exc:
+            response = str(exc)
             log.error(exc)
+
+        return response
 
     def list_files(self, bucket: str, next_continuation_token: Optional[str] = None) -> list:
         if next_continuation_token:
