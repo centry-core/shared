@@ -117,7 +117,7 @@ class EngineBase(metaclass=EngineMeta):
         #
         return result
 
-    def create_bucket(self, bucket, bucket_type=None, retention_days=None):
+    def create_bucket(self, bucket, bucket_type=None, retention_days=None) -> dict:
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
         #

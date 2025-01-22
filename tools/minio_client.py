@@ -63,6 +63,9 @@ class MinioClientABC(ABC, EventManagerMixin):
     def bucket_prefix(self) -> str:
         raise NotImplementedError
 
+    def purify_bucket_name(self, name: str) -> str:
+        return name[len(self.bucket_prefix):] if name.startswith(self.bucket_prefix) else name
+
     def format_bucket_name(self, bucket: str) -> str:
         if bucket.startswith(self.bucket_prefix):
             return bucket
@@ -70,12 +73,12 @@ class MinioClientABC(ABC, EventManagerMixin):
 
     def list_bucket(self) -> list:
         return [
-            each["Name"].replace(self.bucket_prefix, "", 1)
+            self.purify_bucket_name(each["Name"])
             for each in self.s3_client.list_buckets().get("Buckets", {})
             if each["Name"].startswith(self.bucket_prefix)
         ]
 
-    def create_bucket(self, bucket: str, bucket_type=None, retention_days: Optional[int] = None) -> Optional[dict]:
+    def create_bucket(self, bucket: str, bucket_type=None, retention_days: Optional[int] = None) -> dict:
         response = None
         try:
             bucket_name = self.format_bucket_name(bucket)
@@ -89,10 +92,10 @@ class MinioClientABC(ABC, EventManagerMixin):
             if retention_days:
                 self.configure_bucket_lifecycle(bucket_name, retention_days)
         except ClientError as client_error:
-            response = str(client_error)
+            response = {'error': str(client_error)}
             log.warning(client_error)
         except Exception as exc:
-            response = str(exc)
+            response = {'error': str(exc)}
             log.error(exc)
 
         return response
