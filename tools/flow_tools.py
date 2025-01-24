@@ -3,7 +3,7 @@ from functools import wraps
 from typing import Optional, Any, Callable
 from pylon.core.tools import log
 
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 
 
 # variable_pattern = re.compile(r"\s*{{\s*([a-zA-Z0-9_]+)\s*}}\s*")

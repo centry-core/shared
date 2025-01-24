@@ -24,7 +24,7 @@ from typing import Optional, Any, Union, List, Tuple
 
 import hvac  # actually comes from pylon
 from hvac.exceptions import InvalidRequest
-from pydantic import BaseModel, constr, ValidationError
+from pydantic.v1 import BaseModel, constr, ValidationError
 
 from pylon.core.tools import log
 from jinja2 import Template
