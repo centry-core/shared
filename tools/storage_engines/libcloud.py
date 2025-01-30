@@ -46,6 +46,9 @@ class EngineMeta(type):
 class EngineBase(metaclass=EngineMeta):
     """ Engine base class """
 
+    def purify_bucket_name(self, name: str) -> str:
+        return name[len(self.bucket_prefix):] if name.startswith(self.bucket_prefix) else name
+
     def __getattr__(self, name):
         log.info("StorageEngine.base.__getattr__(%s)", name)
 
