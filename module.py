@@ -28,6 +28,9 @@ class Module(module.ModuleModel):
         self.db = None
         self.mongo = None
         self.job_type_rpcs = set()
+        #
+        self.module_tables = {}
+        self.original_add_table = None
 
     def init(self):
         """ Init module """
@@ -103,9 +106,50 @@ class Module(module.ModuleModel):
 
         self.descriptor.init_api()
 
-    def deinit(self):  # pylint: disable=R0201
+        try:
+            from pylon.core.tools.module.this import caller_module_name  # pylint: disable=E0401,E0611,C0415
+            import sqlalchemy  # pylint: disable=E0401,C0415
+            #
+            self.context.manager.register_reload_hook(self._reload_hook)
+            #
+            def _wrap_metadata_add_table(original_add_table):
+                _self = self
+                _original_add_table = original_add_table
+                #
+                def _wrapped_metadata_add_table(self, name, schema, table):
+                    module_name = caller_module_name(skip=2)
+                    module_tables = _self.module_tables
+                    #
+                    if module_name not in module_tables:
+                        module_tables[module_name] = []
+                    #
+                    if table not in module_tables[module_name]:
+                        module_tables[module_name].append(table)
+                    #
+                    return _original_add_table(self, name, schema, table)
+                #
+                return _wrapped_metadata_add_table
+            #
+            self.original_add_table = sqlalchemy.MetaData._add_table  # pylint: disable=W0212
+            sqlalchemy.MetaData._add_table = _wrap_metadata_add_table(  # pylint: disable=W0212
+                sqlalchemy.MetaData._add_table  # pylint: disable=W0212
+            )
+        except:  # pylint: disable=W0702
+            log.exception("Could not add reload hooks, skipping")
+
+    def deinit(self):
         """ De-init module """
         log.info("De-initializing module Shared")
+        #
+        try:
+            import sqlalchemy  # pylint: disable=E0401,C0415
+            #
+            if self.original_add_table is not None:
+                sqlalchemy.MetaData._add_table = self.original_add_table  # pylint: disable=W0212
+            #
+            self.context.manager.unregister_reload_hook(self._reload_hook)
+        except:  # pylint: disable=W0702
+            pass
 
     def init_filters(self):
         # Register custom Jinja filters
@@ -118,3 +162,41 @@ class Module(module.ModuleModel):
         self.context.app.template_filter()(pretty_json)
         self.context.app.template_filter()(humanize_timestamp)
         self.context.app.template_filter()(format_datetime)
+
+    def _reload_hook(self, name):
+        import pydantic  # pylint: disable=E0401,C0415
+        from .tools import db  # pylint: disable=C0415
+        #
+        name_prefix = f"plugins.{name}."
+        base_tables = []
+        #
+        for key, ref in list(db.Base.registry._class_registry.data.items()):  # pylint: disable=W0212
+            obj = ref()
+            #
+            if obj is None:
+                continue
+            #
+            if obj.__class__.__name__ != "DeclarativeMeta":
+                continue
+            #
+            mod_name = obj.__module__
+            #
+            if mod_name.startswith(name_prefix):
+                log.info("Removing DB base: %s: %s", key, mod_name)
+                #
+                base_tables.append(obj.__table__)
+                db.Base.registry._dispose_cls(obj)  # pylint: disable=W0212
+        #
+        for table in self.module_tables.get(name, []):
+            if table not in base_tables:
+                base_tables.append(table)
+        #
+        for table in list(reversed(db.Base.metadata.sorted_tables)):
+            if table in base_tables:
+                log.info("Removing DB table: %s", table)
+                db.Base.metadata.remove(table)
+        #
+        for ref in list(pydantic.class_validators._FUNCS):  # pylint: disable=W0212
+            if ref.startswith(name_prefix):
+                log.info("Removing PD validator: %s", ref)
+                pydantic.class_validators._FUNCS.discard(ref)  # pylint: disable=W0212
