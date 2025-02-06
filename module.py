@@ -168,6 +168,9 @@ class Module(module.ModuleModel):
         from .tools import db  # pylint: disable=C0415
         #
         name_prefix = f"plugins.{name}."
+        #
+        # Collect DB tables and dispose DeclarativeMeta
+        #
         base_tables = []
         #
         for key, ref in list(db.Base.registry._class_registry.data.items()):  # pylint: disable=W0212
@@ -191,10 +194,43 @@ class Module(module.ModuleModel):
             if table not in base_tables:
                 base_tables.append(table)
         #
+        # Remove DB relationships
+        #
+        for key, ref in list(db.Base.registry._class_registry.data.items()):  # pylint: disable=W0212
+            obj = ref()
+            #
+            if obj is None:
+                continue
+            #
+            if obj.__class__.__name__ != "DeclarativeMeta":
+                continue
+            #
+            obj_mapper = obj.__mapper__
+            mappers = set(obj_mapper.iterate_to_root()).union(obj_mapper.self_and_descendants)
+            #
+            for mapper in mappers:
+                for prop_key, prop_val in list(mapper._props.items()):  # pylint: disable=W0212
+                    if prop_val.__class__.__name__ != "RelationshipProperty":
+                        continue
+                    #
+                    tables = [prop_val.target, prop_val.secondary, prop_val.backref]
+                    #
+                    for table in tables:
+                        if table in base_tables:
+                            log.info("Removing DB relation: %s - %s", mapper, prop_key)
+                            #
+                            mapper._props.pop(prop_key)  # pylint: disable=W0212
+                            type.__delattr__(mapper.class_, prop_key)
+                            break
+        #
+        # Remove DB tables
+        #
         for table in list(reversed(db.Base.metadata.sorted_tables)):
             if table in base_tables:
                 log.info("Removing DB table: %s", table)
                 db.Base.metadata.remove(table)
+        #
+        # Remove PD validators
         #
         for ref in list(pydantic.class_validators._FUNCS):  # pylint: disable=W0212
             if ref.startswith(name_prefix):
