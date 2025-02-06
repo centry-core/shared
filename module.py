@@ -36,6 +36,37 @@ class Module(module.ModuleModel):
         """ Init module """
         log.info("Initializing module Shared")
 
+        try:
+            from pylon.core.tools.module.this import caller_module_name  # pylint: disable=E0401,E0611,C0415
+            import sqlalchemy  # pylint: disable=E0401,C0415
+            #
+            self.context.manager.register_reload_hook(self._reload_hook)
+            #
+            def _wrap_metadata_add_table(original_add_table):
+                _self = self
+                _original_add_table = original_add_table
+                #
+                def _wrapped_metadata_add_table(self, name, schema, table):
+                    module_name = caller_module_name(skip=2)
+                    module_tables = _self.module_tables
+                    #
+                    if module_name not in module_tables:
+                        module_tables[module_name] = []
+                    #
+                    if table not in module_tables[module_name]:
+                        module_tables[module_name].append(table)
+                    #
+                    return _original_add_table(self, name, schema, table)
+                #
+                return _wrapped_metadata_add_table
+            #
+            self.original_add_table = sqlalchemy.MetaData._add_table  # pylint: disable=W0212
+            sqlalchemy.MetaData._add_table = _wrap_metadata_add_table(  # pylint: disable=W0212
+                sqlalchemy.MetaData._add_table  # pylint: disable=W0212
+            )
+        except:  # pylint: disable=W0702
+            log.warning("Could not add reload hooks, skipping")
+
         from .tools.rpc_tools import RpcMixin, EventManagerMixin
         RpcMixin.set_rpc_manager(self.context.rpc_manager)
         EventManagerMixin.set_event_manager(self.context.event_manager)
@@ -105,37 +136,6 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('integration_tools', integration_tools)
 
         self.descriptor.init_api()
-
-        try:
-            from pylon.core.tools.module.this import caller_module_name  # pylint: disable=E0401,E0611,C0415
-            import sqlalchemy  # pylint: disable=E0401,C0415
-            #
-            self.context.manager.register_reload_hook(self._reload_hook)
-            #
-            def _wrap_metadata_add_table(original_add_table):
-                _self = self
-                _original_add_table = original_add_table
-                #
-                def _wrapped_metadata_add_table(self, name, schema, table):
-                    module_name = caller_module_name(skip=2)
-                    module_tables = _self.module_tables
-                    #
-                    if module_name not in module_tables:
-                        module_tables[module_name] = []
-                    #
-                    if table not in module_tables[module_name]:
-                        module_tables[module_name].append(table)
-                    #
-                    return _original_add_table(self, name, schema, table)
-                #
-                return _wrapped_metadata_add_table
-            #
-            self.original_add_table = sqlalchemy.MetaData._add_table  # pylint: disable=W0212
-            sqlalchemy.MetaData._add_table = _wrap_metadata_add_table(  # pylint: disable=W0212
-                sqlalchemy.MetaData._add_table  # pylint: disable=W0212
-            )
-        except:  # pylint: disable=W0702
-            log.exception("Could not add reload hooks, skipping")
 
     def deinit(self):
         """ De-init module """
