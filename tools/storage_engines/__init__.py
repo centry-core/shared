@@ -17,6 +17,8 @@
 
 import base64
 
+from pylon.core.tools import log  # pylint: disable=E0401,E0611
+
 
 def fs_encode_name(name, kind=None, encoder=None):
     """ Name encoder """
