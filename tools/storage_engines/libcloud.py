@@ -163,7 +163,10 @@ class EngineBase(metaclass=EngineMeta):
         result = []
         #
         for item in self.driver.iterate_containers():
-            name = self._fs_decode_name(item.name)
+            try:
+                name = self._fs_decode_name(item.name)
+            except:  # pylint: disable=W0702
+                continue
             #
             if name.startswith(self.bucket_prefix):
                 result.append(name.replace(self.bucket_prefix, "", 1))

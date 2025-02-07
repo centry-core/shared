@@ -143,7 +143,10 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         result = []
         #
         for item in os.listdir(path=self.bucket_path):
-            name = self._fs_decode_name(item)
+            try:
+                name = self._fs_decode_name(item)
+            except:  # pylint: disable=W0702
+                continue
             #
             if name.startswith(self.bucket_prefix):
                 result.append(name.replace(self.bucket_prefix, "", 1))
