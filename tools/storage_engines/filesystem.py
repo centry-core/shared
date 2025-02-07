@@ -111,6 +111,9 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         if self.storage_filesystem_encoder == "base32":
             return base64.b32encode(name.encode()).decode()
         #
+        if self.storage_libcloud_encoder == "base32domain":
+            return base64.b32encode(name.encode()).decode().lower().replace("=", "8")
+        #
         return name
 
     def _fs_decode_name(self, name):
@@ -119,6 +122,9 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         if self.storage_filesystem_encoder == "base32":
             return base64.b32decode(name.encode()).decode()
+        #
+        if self.storage_libcloud_encoder == "base32domain":
+            return base64.b32decode(name.replace("8", "=").upper().encode()).decode()
         #
         return name
 
