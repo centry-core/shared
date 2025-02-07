@@ -29,7 +29,7 @@ def fs_encode_name(name, kind=None, encoder=None):
     if encoder == "azureblob":
         if kind == "bucket":
             if name.startswith("p--"):
-                return name.replace("p--", "p.", 1)
+                return name.replace("p--", "p.", 1).replace(".", "-", 2)
     #
     return name
 
@@ -44,7 +44,7 @@ def fs_decode_name(name, kind=None, encoder=None):
     #
     if encoder == "azureblob":
         if kind == "bucket":
-            if name.startswith("p."):
-                return name.replace("p.", "p--", 1)
+            if name.startswith("p-") and not name.startswith("p--"):
+                return name.replace("-", ".", 2).replace("p.", "p--", 1)
     #
     return name
