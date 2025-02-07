@@ -19,10 +19,11 @@
 import os
 import sys
 import json
+import queue
 import base64
 import datetime
 
-from pylon.core.tools import log  # pylint: disable=E0401
+from pylon.core.tools import log  # pylint: disable=E0401,E0611
 
 from tools import context  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
@@ -37,7 +38,7 @@ class EngineMeta(type):
         log.info("StorageEngine.cls.__getattr__(%s)", name)
 
 
-class EngineBase(metaclass=EngineMeta):
+class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
     """ Engine base class """
 
     def purify_bucket_name(self, name: str) -> str:
@@ -48,19 +49,50 @@ class EngineBase(metaclass=EngineMeta):
 
     TASKS_BUCKET = "tasks"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self,
+            *args,
+            storage_filesystem_path=None,
+            storage_filesystem_encoder=None,
+            **kwargs,
+    ):
         _ = args, kwargs
         #
         self.event_manager = context.event_manager
+        self.rpc_manager = context.rpc_manager
         #
-        self.bucket_path = os.path.join(c.STORAGE_FILESYSTEM_PATH, "bucket")
-        self.meta_path = os.path.join(c.STORAGE_FILESYSTEM_PATH, "meta")
+        self.storage_filesystem_path = storage_filesystem_path \
+            if storage_filesystem_path is not None else \
+            c.STORAGE_FILESYSTEM_PATH
+        #
+        self.storage_filesystem_encoder = storage_filesystem_encoder \
+            if storage_filesystem_encoder is not None else \
+            c.STORAGE_FILESYSTEM_ENCODER
+        #
+        self.bucket_path = os.path.join(self.storage_filesystem_path, "bucket")
+        self.meta_path = os.path.join(self.storage_filesystem_path, "meta")
         #
         os.makedirs(self.bucket_path, exist_ok=True)
         os.makedirs(self.meta_path, exist_ok=True)
 
     def extract_access_data(self, integration_id=None, is_local=True):
-        raise RuntimeError("Not supported")
+        try:
+            rpc_call = self.rpc_manager.timeout(5)
+            #
+            if self.project:
+                settings = rpc_call.integrations_get_s3_settings(
+                    self.project["id"], integration_id, is_local,
+                )
+            else:
+                settings = rpc_call.integrations_get_s3_admin_settings(integration_id)
+        #
+        except queue.Empty:
+            settings = None
+        #
+        if settings:
+            return dict(settings)
+        #
+        return {}
 
     @property
     def bucket_prefix(self):
@@ -72,22 +104,20 @@ class EngineBase(metaclass=EngineMeta):
         #
         return f"{self.bucket_prefix}{bucket}"
 
-    @staticmethod
-    def _fs_encode_name(name):
-        if c.STORAGE_FILESYSTEM_ENCODER == "base64":
+    def _fs_encode_name(self, name):
+        if self.storage_filesystem_encoder == "base64":
             return base64.urlsafe_b64encode(name.encode()).decode()
         #
-        if c.STORAGE_FILESYSTEM_ENCODER == "base32":
+        if self.storage_filesystem_encoder == "base32":
             return base64.b32encode(name.encode()).decode()
         #
         return name
 
-    @staticmethod
-    def _fs_decode_name(name):
-        if c.STORAGE_FILESYSTEM_ENCODER == "base64":
+    def _fs_decode_name(self, name):
+        if self.storage_filesystem_encoder == "base64":
             return base64.urlsafe_b64decode(name.encode()).decode()
         #
-        if c.STORAGE_FILESYSTEM_ENCODER == "base32":
+        if self.storage_filesystem_encoder == "base32":
             return base64.b32decode(name.encode()).decode()
         #
         return name
@@ -322,10 +352,17 @@ class Engine(EngineBase):
             self.project = project
         else:
             self.project = project.to_json()
+        #
         self.integration_id = integration_id
         self.is_local = is_local
         #
-        super().__init__()
+        integration_settings = self.extract_access_data(integration_id, is_local)
+        #
+        if integration_settings:
+            if integration_settings["integration_id"] != 1:
+                raise RuntimeError("Non-default filesystem integrations are not curently supported")
+        else:
+            super().__init__()
 
     @property
     def bucket_prefix(self):
@@ -356,7 +393,13 @@ class AdminEngine(EngineBase):
         self.integration_id = integration_id
         self.is_local = False
         #
-        super().__init__()
+        integration_settings = self.extract_access_data(integration_id)
+        #
+        if integration_settings:
+            if integration_settings["integration_id"] != 1:
+                raise RuntimeError("Non-default filesystem integrations are not curently supported")
+        else:
+            super().__init__()
 
     @property
     def bucket_prefix(self):
