@@ -20,7 +20,6 @@ import os
 import sys
 import json
 import queue
-import base64
 import datetime
 
 from pylon.core.tools import log  # pylint: disable=E0401,E0611
@@ -29,6 +28,7 @@ from tools import context  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
 
 from ..minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
+from . import fs_encode_name, fs_decode_name
 
 
 class EngineMeta(type):
@@ -104,40 +104,30 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         return f"{self.bucket_prefix}{bucket}"
 
-    def _fs_encode_name(self, name):
-        if self.storage_filesystem_encoder == "base64":
-            return base64.urlsafe_b64encode(name.encode()).decode()
-        #
-        if self.storage_filesystem_encoder == "base32":
-            return base64.b32encode(name.encode()).decode()
-        #
-        if self.storage_libcloud_encoder == "base32domain":
-            return base64.b32encode(name.encode()).decode().lower().replace("=", "8")
-        #
-        return name
-
-    def _fs_decode_name(self, name):
-        if self.storage_filesystem_encoder == "base64":
-            return base64.urlsafe_b64decode(name.encode()).decode()
-        #
-        if self.storage_filesystem_encoder == "base32":
-            return base64.b32decode(name.encode()).decode()
-        #
-        if self.storage_libcloud_encoder == "base32domain":
-            return base64.b32decode(name.replace("8", "=").upper().encode()).decode()
-        #
-        return name
-
     def _save_meta(self, bucket, meta):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
+        path = os.path.join(
+            self.meta_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="meta",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
         #
         with open(path, "w", encoding="utf-8") as file:
             json.dump(meta, file)
 
     def _load_meta(self, bucket):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
+        path = os.path.join(
+            self.meta_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="meta",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
         #
         if os.path.exists(path):
             with open(path, "rb") as file:
@@ -150,7 +140,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         for item in os.listdir(path=self.bucket_path):
             try:
-                name = self._fs_decode_name(item)
+                name = fs_decode_name(
+                    name=item,
+                    kind="bucket",
+                    encoder=self.storage_filesystem_encoder,
+                )
             except:  # pylint: disable=W0702
                 continue
             #
@@ -161,7 +155,14 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
 
     def create_bucket(self, bucket, bucket_type=None, retention_days=None) -> dict:
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
+        path = os.path.join(
+            self.bucket_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
         #
         os.makedirs(path, exist_ok=True)
         #
@@ -179,7 +180,14 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         _ = next_continuation_token
         #
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
+        path = os.path.join(
+            self.bucket_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
         #
         files = []
         #
@@ -188,7 +196,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
                 stat = entry.stat()
                 #
                 files.append({
-                    "name": self._fs_decode_name(entry.name),
+                    "name": fs_decode_name(
+                        name=entry.name,
+                        kind="file",
+                        encoder=self.storage_filesystem_encoder,
+                    ),
                     "size": stat.st_size,
                     "modified": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 })
@@ -200,8 +212,16 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(
             self.bucket_path,
-            self._fs_encode_name(bucket_name),
-            self._fs_encode_name(file_name)
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+            fs_encode_name(
+                name=file_name,
+                kind="file",
+                encoder=self.storage_filesystem_encoder,
+            ),
         )
         #
         with open(path, "wb") as file:
@@ -222,8 +242,16 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(
             self.bucket_path,
-            self._fs_encode_name(bucket_name),
-            self._fs_encode_name(file_name)
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+            fs_encode_name(
+                name=file_name,
+                kind="file",
+                encoder=self.storage_filesystem_encoder,
+            ),
         )
         #
         file_size = self.get_file_size(bucket, file_name)
@@ -237,8 +265,16 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(
             self.bucket_path,
-            self._fs_encode_name(bucket_name),
-            self._fs_encode_name(file_name)
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+            fs_encode_name(
+                name=file_name,
+                kind="file",
+                encoder=self.storage_filesystem_encoder,
+            ),
         )
         #
         if os.path.exists(path):
@@ -249,8 +285,22 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
             self.remove_file(bucket, file_obj["name"])
         #
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
-        meta_path = os.path.join(self.meta_path, self._fs_encode_name(bucket_name))
+        path = os.path.join(
+            self.bucket_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
+        meta_path = os.path.join(
+            self.meta_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="meta",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
         #
         if os.path.exists(path):
             os.rmdir(path)
@@ -281,7 +331,14 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
 
     def get_bucket_size(self, bucket):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(self.bucket_path, self._fs_encode_name(bucket_name))
+        path = os.path.join(
+            self.bucket_path,
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+        )
         #
         total_size = 0
         #
@@ -297,8 +354,16 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(
             self.bucket_path,
-            self._fs_encode_name(bucket_name),
-            self._fs_encode_name(filename)
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+            fs_encode_name(
+                name=filename,
+                kind="file",
+                encoder=self.storage_filesystem_encoder,
+            ),
         )
         #
         try:
@@ -344,8 +409,16 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(
             self.bucket_path,
-            self._fs_encode_name(bucket_name),
-            self._fs_encode_name(file_name)
+            fs_encode_name(
+                name=bucket_name,
+                kind="bucket",
+                encoder=self.storage_filesystem_encoder,
+            ),
+            fs_encode_name(
+                name=file_name,
+                kind="file",
+                encoder=self.storage_filesystem_encoder,
+            ),
         )
         #
         return os.path.exists(path)

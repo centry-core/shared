@@ -35,6 +35,7 @@ from tools import config as c  # pylint: disable=E0401
 from .. import db
 from ..minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
 from ...models.storage import StorageMeta
+from . import fs_encode_name, fs_decode_name
 
 
 class EngineMeta(type):
@@ -124,32 +125,12 @@ class EngineBase(metaclass=EngineMeta):
         #
         return f"{self.bucket_prefix}{bucket}"
 
-    def _fs_encode_name(self, name):
-        if self.storage_libcloud_encoder == "base64":
-            return base64.urlsafe_b64encode(name.encode()).decode()
-        #
-        if self.storage_libcloud_encoder == "base32":
-            return base64.b32encode(name.encode()).decode()
-        #
-        if self.storage_libcloud_encoder == "base32domain":
-            return base64.b32encode(name.encode()).decode().lower().replace("=", "8")
-        #
-        return name
-
-    def _fs_decode_name(self, name):
-        if self.storage_libcloud_encoder == "base64":
-            return base64.urlsafe_b64decode(name.encode()).decode()
-        #
-        if self.storage_libcloud_encoder == "base32":
-            return base64.b32decode(name.encode()).decode()
-        #
-        if self.storage_libcloud_encoder == "base32domain":
-            return base64.b32decode(name.replace("8", "=").upper().encode()).decode()
-        #
-        return name
-
     def _save_meta(self, bucket, meta):
-        bucket_name = self._fs_encode_name(self.format_bucket_name(bucket))
+        bucket_name = fs_encode_name(
+            name=self.format_bucket_name(bucket),
+            kind="meta",
+            encoder=self.storage_filesystem_encoder,
+        )
         meta_obj = StorageMeta.query.get(bucket_name)
         if meta_obj is None:
             meta_obj = StorageMeta(id=bucket_name, data=meta)
@@ -159,7 +140,11 @@ class EngineBase(metaclass=EngineMeta):
             meta_obj.commit()
 
     def _load_meta(self, bucket):
-        bucket_name = self._fs_encode_name(self.format_bucket_name(bucket))
+        bucket_name = fs_encode_name(
+            name=self.format_bucket_name(bucket),
+            kind="meta",
+            encoder=self.storage_filesystem_encoder,
+        )
         meta_obj = StorageMeta.query.get(bucket_name)
         if meta_obj is None:
             return {}
@@ -170,7 +155,11 @@ class EngineBase(metaclass=EngineMeta):
         #
         for item in self.driver.iterate_containers():
             try:
-                name = self._fs_decode_name(item.name)
+                name = fs_decode_name(
+                    name=item.name,
+                    kind="bucket",
+                    encoder=self.storage_filesystem_encoder,
+                )
             except:  # pylint: disable=W0702
                 continue
             #
@@ -181,7 +170,11 @@ class EngineBase(metaclass=EngineMeta):
 
     def create_bucket(self, bucket, bucket_type=None, retention_days=None) -> dict:
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         try:
             self.driver.get_container(bucket_key)
@@ -202,7 +195,11 @@ class EngineBase(metaclass=EngineMeta):
         _ = next_continuation_token
         #
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         files = []
         #
@@ -211,7 +208,11 @@ class EngineBase(metaclass=EngineMeta):
             modify_time = entry.extra.get("modify_time", time.time())
             #
             files.append({
-                "name": self._fs_decode_name(entry.name),
+                "name": fs_decode_name(
+                    name=entry.name,
+                    kind="file",
+                    encoder=self.storage_filesystem_encoder,
+                ),
                 "size": entry.size,
                 "modified": datetime.datetime.fromtimestamp(modify_time).isoformat(),
             })
@@ -221,8 +222,16 @@ class EngineBase(metaclass=EngineMeta):
     @space_monitor
     def upload_file(self, bucket, file_obj, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
-        file_key = self._fs_encode_name(file_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
+        file_key = fs_encode_name(
+            name=file_name,
+            kind="file",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         # TODO: memory-efficient 'any file-data iterator'
         #
@@ -242,8 +251,16 @@ class EngineBase(metaclass=EngineMeta):
 
     def download_file(self, bucket, file_name, project_id=None):
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
-        file_key = self._fs_encode_name(file_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
+        file_key = fs_encode_name(
+            name=file_name,
+            kind="file",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         obj = self.driver.get_object(bucket_key, file_key)
         file_size = obj.size
@@ -254,8 +271,16 @@ class EngineBase(metaclass=EngineMeta):
     @space_monitor
     def remove_file(self, bucket, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
-        file_key = self._fs_encode_name(file_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
+        file_key = fs_encode_name(
+            name=file_name,
+            kind="file",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         obj = self.driver.get_object(bucket_key, file_key)
         self.driver.delete_object(obj)
@@ -265,10 +290,19 @@ class EngineBase(metaclass=EngineMeta):
             self.remove_file(bucket, file_obj["name"])
         #
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
+        meta_key = fs_encode_name(
+            name=bucket_name,
+            kind="meta",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         with db.with_project_schema_session(None) as session:
-            meta_obj = session.query(StorageMeta).where(StorageMeta.id == bucket_key).first()
+            meta_obj = session.query(StorageMeta).where(StorageMeta.id == meta_key).first()
             if meta_obj is not None:
                 session.delete(meta_obj)
         #
@@ -306,8 +340,16 @@ class EngineBase(metaclass=EngineMeta):
 
     def get_file_size(self, bucket, filename):
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
-        file_key = self._fs_encode_name(filename)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
+        file_key = fs_encode_name(
+            name=filename,
+            kind="file",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         try:
             obj = self.driver.get_object(bucket_key, file_key)
@@ -350,8 +392,16 @@ class EngineBase(metaclass=EngineMeta):
 
     def is_file_exist(self, bucket, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        bucket_key = self._fs_encode_name(bucket_name)
-        file_key = self._fs_encode_name(file_name)
+        bucket_key = fs_encode_name(
+            name=bucket_name,
+            kind="bucket",
+            encoder=self.storage_filesystem_encoder,
+        )
+        file_key = fs_encode_name(
+            name=file_name,
+            kind="file",
+            encoder=self.storage_filesystem_encoder,
+        )
         #
         try:
             self.driver.get_object(bucket_key, file_key)
