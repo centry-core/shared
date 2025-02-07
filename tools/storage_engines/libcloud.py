@@ -365,6 +365,8 @@ class Engine(EngineBase):
         self.integration_id = integration_id
         self.is_local = is_local
         #
+        self.rpc_manager = context.rpc_manager
+        #
         integration_settings = self.extract_access_data(integration_id, is_local)
         #
         if integration_settings:
@@ -414,6 +416,8 @@ class AdminEngine(EngineBase):
         self.project = None
         self.integration_id = integration_id
         self.is_local = False
+        #
+        self.rpc_manager = context.rpc_manager
         #
         integration_settings = self.extract_access_data(integration_id)
         #
