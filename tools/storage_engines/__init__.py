@@ -17,13 +17,9 @@
 
 import base64
 
-from pylon.core.tools import log  # pylint: disable=E0401,E0611
-
 
 def fs_encode_name(name, kind=None, encoder=None):
     """ Name encoder """
-    log.debug("Encode: %s, %s, %s", name, kind, encoder)
-    #
     if encoder == "base64":
         return base64.urlsafe_b64encode(name.encode()).decode()
     #
@@ -40,8 +36,6 @@ def fs_encode_name(name, kind=None, encoder=None):
 
 def fs_decode_name(name, kind=None, encoder=None):
     """ Name decoder """
-    log.debug("Decode: %s, %s, %s", name, kind, encoder)
-    #
     if encoder == "base64":
         return base64.urlsafe_b64decode(name.encode()).decode()
     #

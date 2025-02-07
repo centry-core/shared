@@ -129,7 +129,7 @@ class EngineBase(metaclass=EngineMeta):
         bucket_name = fs_encode_name(
             name=self.format_bucket_name(bucket),
             kind="meta",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         meta_obj = StorageMeta.query.get(bucket_name)
         if meta_obj is None:
@@ -143,7 +143,7 @@ class EngineBase(metaclass=EngineMeta):
         bucket_name = fs_encode_name(
             name=self.format_bucket_name(bucket),
             kind="meta",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         meta_obj = StorageMeta.query.get(bucket_name)
         if meta_obj is None:
@@ -158,7 +158,7 @@ class EngineBase(metaclass=EngineMeta):
                 name = fs_decode_name(
                     name=item.name,
                     kind="bucket",
-                    encoder=self.storage_filesystem_encoder,
+                    encoder=self.storage_libcloud_encoder,
                 )
             except:  # pylint: disable=W0702
                 continue
@@ -173,7 +173,7 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         try:
@@ -198,7 +198,7 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         files = []
@@ -211,7 +211,7 @@ class EngineBase(metaclass=EngineMeta):
                 "name": fs_decode_name(
                     name=entry.name,
                     kind="file",
-                    encoder=self.storage_filesystem_encoder,
+                    encoder=self.storage_libcloud_encoder,
                 ),
                 "size": entry.size,
                 "modified": datetime.datetime.fromtimestamp(modify_time).isoformat(),
@@ -225,12 +225,12 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         file_key = fs_encode_name(
             name=file_name,
             kind="file",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         # TODO: memory-efficient 'any file-data iterator'
@@ -254,12 +254,12 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         file_key = fs_encode_name(
             name=file_name,
             kind="file",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         obj = self.driver.get_object(bucket_key, file_key)
@@ -274,12 +274,12 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         file_key = fs_encode_name(
             name=file_name,
             kind="file",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         obj = self.driver.get_object(bucket_key, file_key)
@@ -293,12 +293,12 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         meta_key = fs_encode_name(
             name=bucket_name,
             kind="meta",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         with db.with_project_schema_session(None) as session:
@@ -343,12 +343,12 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         file_key = fs_encode_name(
             name=filename,
             kind="file",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         try:
@@ -395,12 +395,12 @@ class EngineBase(metaclass=EngineMeta):
         bucket_key = fs_encode_name(
             name=bucket_name,
             kind="bucket",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         file_key = fs_encode_name(
             name=file_name,
             kind="file",
-            encoder=self.storage_filesystem_encoder,
+            encoder=self.storage_libcloud_encoder,
         )
         #
         try:
