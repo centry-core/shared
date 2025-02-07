@@ -374,17 +374,20 @@ class Engine(EngineBase):
             storage_libcloud_params=integration_settings["secret_access_key"]
             storage_libcloud_encoder=integration_settings["region_name"]
             #
-            if storage_libcloud_driver == "LOCAL" and integration_settings["integration_id"] != 1:
-                raise RuntimeError("Non-default LOCAL integrations are not curently supported")
-            #
-            self.integration_id = integration_settings["integration_id"]
-            self.is_local = integration_settings["is_local"]
-            #
-            super().__init__(
-                storage_libcloud_driver=storage_libcloud_driver,
-                storage_libcloud_params=storage_libcloud_params,
-                storage_libcloud_encoder=storage_libcloud_encoder,
-            )
+            if integration_settings["integration_id"] != 1:
+                if storage_libcloud_driver == "LOCAL":
+                    raise RuntimeError("Non-default LOCAL integrations are not curently supported")
+                #
+                self.integration_id = integration_settings["integration_id"]
+                self.is_local = integration_settings["is_local"]
+                #
+                super().__init__(
+                    storage_libcloud_driver=storage_libcloud_driver,
+                    storage_libcloud_params=storage_libcloud_params,
+                    storage_libcloud_encoder=storage_libcloud_encoder,
+                )
+            else:
+                super().__init__()
         else:
             super().__init__()
 
@@ -426,17 +429,20 @@ class AdminEngine(EngineBase):
             storage_libcloud_params=integration_settings["secret_access_key"]
             storage_libcloud_encoder=integration_settings["region_name"]
             #
-            if storage_libcloud_driver == "LOCAL" and integration_settings["integration_id"] != 1:
-                raise RuntimeError("Non-default LOCAL integrations are not curently supported")
-            #
-            self.integration_id = integration_settings["integration_id"]
-            self.is_local = integration_settings["is_local"]
-            #
-            super().__init__(
-                storage_libcloud_driver=storage_libcloud_driver,
-                storage_libcloud_params=storage_libcloud_params,
-                storage_libcloud_encoder=storage_libcloud_encoder,
-            )
+            if integration_settings["integration_id"] != 1:
+                if storage_libcloud_driver == "LOCAL":
+                    raise RuntimeError("Non-default LOCAL integrations are not curently supported")
+                #
+                self.integration_id = integration_settings["integration_id"]
+                self.is_local = integration_settings["is_local"]
+                #
+                super().__init__(
+                    storage_libcloud_driver=storage_libcloud_driver,
+                    storage_libcloud_params=storage_libcloud_params,
+                    storage_libcloud_encoder=storage_libcloud_encoder,
+                )
+            else:
+                super().__init__()
         else:
             super().__init__()
 
