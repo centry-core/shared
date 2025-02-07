@@ -379,6 +379,8 @@ class Engine(EngineBase):
         integration_settings = self.extract_access_data(integration_id, is_local)
         #
         if integration_settings:
+            log.debug("Integration settings: %s", integration_settings)
+            #
             storage_libcloud_driver=integration_settings["access_key"]
             storage_libcloud_params=integration_settings["secret_access_key"]
             storage_libcloud_encoder=integration_settings["region_name"]
