@@ -234,7 +234,7 @@ class EngineBase(metaclass=EngineMeta):
             data = file_obj.read()
         #
         container = self.driver.get_container(bucket_key)
-        self.driver.upload_object_via_stream([data], container, file_key)
+        self.driver.upload_object_via_stream(iter([data]), container, file_key)
         #
         throughput_monitor(client=self, file_size=sys.getsizeof(file_obj))
         #
