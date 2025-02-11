@@ -1,5 +1,5 @@
 from typing import Optional, Any, List, get_origin, ForwardRef
-from pydantic import BaseModel, validator, AnyUrl, parse_obj_as
+from pydantic.v1 import BaseModel, validator, AnyUrl, parse_obj_as
 
 
 class TestParameter(BaseModel):

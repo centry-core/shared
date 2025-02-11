@@ -2,8 +2,8 @@ import re
 from uuid import uuid4
 from typing import Optional
 
-from pydantic import SecretStr
-from pydantic.validators import str_validator
+from pydantic.v1 import SecretStr
+from pydantic.v1.validators import str_validator
 
 from ..tools.vault_tools import VaultClient
 from pylon.core.tools import log

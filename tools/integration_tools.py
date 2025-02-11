@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import (
+from pydantic.v1 import (
     BaseModel,
     root_validator,
 )
