@@ -232,7 +232,12 @@ class Module(module.ModuleModel):
         #
         # Remove PD validators
         #
-        for ref in list(pydantic.class_validators._FUNCS):  # pylint: disable=W0212
+        try:
+            class_validators = pydantic.v1.class_validators
+        except:  # pylint: disable=W0702
+            class_validators = pydantic.class_validators
+        #
+        for ref in list(class_validators._FUNCS):  # pylint: disable=W0212
             if ref.startswith(name_prefix):
                 log.info("Removing PD validator: %s", ref)
-                pydantic.class_validators._FUNCS.discard(ref)  # pylint: disable=W0212
+                class_validators._FUNCS.discard(ref)  # pylint: disable=W0212
