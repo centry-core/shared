@@ -137,6 +137,16 @@ class Module(module.ModuleModel):
 
         self.descriptor.init_api()
 
+    def ready(self):
+        project_list = self.context.rpc_manager.call.project_list(filter_={'create_success': True})
+        # project_list = ({'id': 2}, )
+        from .tools import db
+        for i in project_list:
+            log.info("Init project db: Project %s" % i)
+            with db.get_session(i['id']) as tenant_db:
+                db.get_all_metadata().create_all(bind=tenant_db.connection())
+                tenant_db.commit()
+
     def deinit(self):
         """ De-init module """
         log.info("De-initializing module Shared")
