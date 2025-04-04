@@ -103,7 +103,33 @@ class Module(module.ModuleModel):
 
         self.descriptor.init_api()
 
-    def deinit(self):  # pylint: disable=R0201
+    def ready(self):
+        """ Ready callback """
+        from .tools import db  # pylint: disable=C0415
+        #
+        log.info("Getting shared metadata")
+        shared_metadata = db.get_shared_metadata()
+        #
+        log.info("Applying shared metadata")
+        with db.get_session(None) as shared_db:
+            shared_metadata.create_all(bind=shared_db.connection())
+            shared_db.commit()
+        #
+        log.info("Getting project metadata")
+        tenant_metadata = db.get_tenant_specific_metadata()
+        #
+        log.info("Getting project list")
+        project_list = self.context.rpc_manager.timeout(120).project_list(
+            filter_={"create_success": True},
+        )
+        #
+        for project in project_list:
+            log.info("Applying project metadata: %s", project)
+            with db.get_session(project["id"]) as tenant_db:
+                tenant_metadata.create_all(bind=tenant_db.connection())
+                tenant_db.commit()
+
+    def deinit(self):
         """ De-init module """
         log.info("De-initializing module Shared")
 
