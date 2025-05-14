@@ -68,6 +68,7 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("REDIS_DB", "int", 2),
                 # Used in carrier-io/projects · rpc/main.py and others
                 ("REDIS_RABBIT_DB", "int", 4),
+                ("REDIS_CHAT_CANVAS_DB", "int", 6),
                 # For arbiter/eventnodes
                 ("REDIS_USE_SSL", "bool", False),
                 # Used in some places, other use data from secrets - which maps to APP_IP
