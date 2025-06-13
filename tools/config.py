@@ -107,7 +107,6 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 # TODO: remove shared_orch
                 ("DATABASE_VENDOR", "str", "postgres"),
                 ("POSTGRES_HOST", "str", "centry-postgres"),
-                ("PGVECTOR_HOST", "str", "pgvector"),
                 ("POSTGRES_PORT", "int", 5432),
                 ("POSTGRES_USER", "str", ""),
                 ("POSTGRES_PASSWORD", "str", ""),
