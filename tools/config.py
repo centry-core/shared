@@ -145,6 +145,11 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
             )
         )
         #
+        # Fix redis password
+        #
+        if self.REDIS_PASSWORD is None:
+            self.REDIS_PASSWORD = ""
+        #
         # Make DB URI if not set
         #
         if self.DATABASE_ENGINE_OPTIONS is None:
