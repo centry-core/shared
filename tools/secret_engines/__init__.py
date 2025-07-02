@@ -198,6 +198,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         if not secrets:
             secrets = self.get_all_secrets()
+
+        from ..secret_field import SecretString
+        if isinstance(value, SecretString):
+            value.vault_client = self
+            return value.unsecret(self.project_id)
         #
         if isinstance(value, str):
             return self.__unsecret_string(value, secrets)
