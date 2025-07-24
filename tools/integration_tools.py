@@ -9,38 +9,6 @@ from . import rpc_tools
 from pylon.core.tools import log
 
 
-def _find_first_configuration_by_partial_settings(
-        user_id: int,
-        project_id: int,
-        configuration_personal: bool,
-        integration_name: str,
-        partial_settings: dict
-):
-    rpc_call = rpc_tools.RpcMixin().rpc.call
-    personal_project_id = rpc_call.projects_get_personal_project_id(user_id)
-    is_shared_project = rpc_call.admin_check_user_in_project(project_id, user_id)
-
-    if not is_shared_project:
-        raise RuntimeError(f"{user_id=} not in {project_id=}")
-
-    if configuration_personal:
-        integrations = rpc_call.integrations_get_all_integrations_by_name(
-            personal_project_id,
-            integration_name
-        )
-    else:
-        integrations = rpc_call.integrations_get_all_integrations_by_name(
-            project_id,
-            integration_name
-        )
-
-    for i in integrations:
-        for k, v in partial_settings.items():
-            if i.settings.get(k) != v:
-                break
-        else:
-            return i
-
 
 def _find_config(
         project_id: int,
@@ -103,35 +71,35 @@ class ExternalIntegrationSupport(BaseModel):
 
         return base_dict
 
-    def dict_integration_expanded(self, user_id: int, project_id, **kwargs):
-        """ Returns dict values with expanded external integration settings if exist"""
-
-        base_dict = super().dict(**kwargs)
-        base_dict.pop('configuration_personal', None)
-        base_dict.pop('configuration_title', None)
-
-        if not isinstance(self._integration_fields, dict):
-            integration_fields = {x: x for x in self._integration_fields}
-        else:
-            integration_fields = self._integration_fields
-
-        partial_settings = {
-            'title': self.configuration_title
-        }
-        integration = _find_first_configuration_by_partial_settings(
-            user_id,
-            project_id,
-            self.configuration_personal,
-            self._integration_name,
-            partial_settings
-        )
-        if integration is None:
-            raise ValueError(f"Integration with title={self.configuration_title}' does not exist")
-
-        for field, integration_field in integration_fields.items():
-            base_dict[field] = integration.settings.get(integration_field)
-
-        return base_dict
+    # def dict_integration_expanded(self, user_id: int, project_id, **kwargs):
+    #     """ Returns dict values with expanded external integration settings if exist"""
+    #
+    #     base_dict = super().dict(**kwargs)
+    #     base_dict.pop('configuration_personal', None)
+    #     base_dict.pop('configuration_title', None)
+    #
+    #     if not isinstance(self._integration_fields, dict):
+    #         integration_fields = {x: x for x in self._integration_fields}
+    #     else:
+    #         integration_fields = self._integration_fields
+    #
+    #     partial_settings = {
+    #         'title': self.configuration_title
+    #     }
+    #     # integration = _find_first_configuration_by_partial_settings(
+    #     #     user_id,
+    #     #     project_id,
+    #     #     self.configuration_personal,
+    #     #     self._integration_name,
+    #     #     partial_settings
+    #     # )
+    #     if integration is None:
+    #         raise ValueError(f"Integration with title={self.configuration_title}' does not exist")
+    #
+    #     for field, integration_field in integration_fields.items():
+    #         base_dict[field] = integration.settings.get(integration_field)
+    #
+    #     return base_dict
 
     @root_validator(pre=True)
     def validate_inheritance(cls, values):
