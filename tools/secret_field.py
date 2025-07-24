@@ -1,15 +1,16 @@
 import re
 from uuid import uuid4
-from typing import Optional
+from typing import Optional, Any
 
-from pydantic.v1 import SecretStr
+from pydantic import BaseModel
+from pydantic.v1 import SecretStr as SecretStrV1
 from pydantic.v1.validators import str_validator
 
 from ..tools.vault_tools import VaultClient
 from pylon.core.tools import log
 
 
-class SecretString(SecretStr):
+class SecretString(SecretStrV1):
     _secret_pattern = re.compile(r'^{{secret\.([A-Za-z0-9_]+)}}$')
 
     def __bool__(self):
@@ -129,18 +130,87 @@ class SecretString(SecretStr):
         return self._is_secret
 
 
-def store_secrets(model_dict: dict, project_id: int) -> None:
-    vault_client = None
-    for field_name, field_value in model_dict.items():
-        if isinstance(field_value, SecretString):
-            if not field_value._is_secret:
-                if vault_client is None:
-                    vault_client = VaultClient(project_id)
-                field_value.vault_client = vault_client
-                field_value.store_secret()
-        elif isinstance(field_value, dict):
-            store_secrets(field_value, project_id)
+def process_field(field_value, vault_client) -> tuple[set, Any]:
+    log.info(f'processing field: {type(field_value)=}, {field_value=}')
+    new_secrets = set()
 
+    if type(field_value).__name__ == "SecretStr":
+        secret_value = field_value.get_secret_value()
+        s = SecretString(secret_value, project_id=vault_client.project_id)
+        log.info(f'found SecretStr {secret_value=}, {s=}, {s._is_secret=}')
+        if not s._is_secret:
+            s.vault_client = vault_client
+            secret_uuid_value = s.store_secret()
+            new_secrets.add(secret_uuid_value)
+            return new_secrets, secret_uuid_value
+    elif isinstance(field_value, SecretString):
+        if not field_value._is_secret:
+            field_value.vault_client = vault_client
+            secret_uuid_value = field_value.store_secret()
+            new_secrets.add(secret_uuid_value)
+    elif isinstance(field_value, dict):
+        new_secrets.update(
+            store_secrets_dict(field_value, project_id=vault_client.project_id, vault_client=vault_client)
+        )
+    elif isinstance(field_value, BaseModel):
+        new_secrets.update(
+            store_secrets_pd(field_value, project_id=vault_client.project_id, vault_client=vault_client)
+        )
+    return new_secrets, None
+
+def store_secrets(model_dict: dict | BaseModel, project_id: Optional[int] = None, vault_client = None) -> set[str]:
+    if isinstance(model_dict, dict):
+        return store_secrets_dict(model_dict=model_dict, project_id=project_id, vault_client=vault_client)
+    if isinstance(model_dict, BaseModel):
+        return store_secrets_pd(model=model_dict, project_id=project_id, vault_client=vault_client)
+    raise ValueError(f'Unsupported type {type(model_dict)}')
+
+def store_secrets_dict(model_dict: dict, project_id: int, vault_client = None) -> set[str]:
+    if not vault_client:
+        if project_id is None:
+            project_id = model_dict['project_id']
+        vault_client = VaultClient(project=project_id)
+
+    new_secrets = set()
+    for field_name in model_dict.keys():
+        field_value = model_dict[field_name]
+        secrets_update, new_value = process_field(field_value, vault_client)
+        if field_value != new_value and new_value is not None:
+            log.info(f'Value to Secrets [{field_name}] {field_value=} -> {new_value}')
+            model_dict[field_name] = new_value
+            new_secrets.add(new_value)
+        new_secrets.update(secrets_update)
+    return new_secrets
+
+def store_secrets_pd(model: BaseModel, project_id: Optional[int] = None, vault_client = None) -> set[str]:
+    if not vault_client:
+        if project_id is None:
+            project_id = model.project_id
+        vault_client = VaultClient(project=project_id)
+
+    new_secrets = set()
+    for field_name, field_info in model.model_fields.items():
+        field_value = getattr(model, field_name)
+        secrets_update, new_value = process_field(field_value, vault_client)
+        if field_value != new_value and new_value is not None:
+            log.info(f'Value to Secrets [{field_name}] {field_value=} -> {new_value}')
+            setattr(model, field_name, new_value)
+            new_secrets.add(new_value)
+        new_secrets.update(secrets_update)
+    return new_secrets
+
+def purge_secrets(project_id: int, secrets_to_delete: list | set | tuple) -> None:
+    vc = VaultClient(project_id)
+    hs = vc.get_hidden_secrets()
+    secret_uids = set(
+        re.fullmatch(vc._secret_pattern, i).group(1)
+        for i in secrets_to_delete
+        if re.fullmatch(vc._secret_pattern, i)
+    )
+    for i in secret_uids:
+        del hs[i]
+    vc.set_hidden_secrets(hs)
+    log.debug(f'secrets purged, {secrets_to_delete}')
 
 def store_secrets_replaced(model_dict: dict, model_dict_before: dict, project_id: int) -> None:
     ''' Substitute old secret value with new one instead of storing a new secret'''

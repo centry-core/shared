@@ -188,10 +188,7 @@ class APIBase(Resource):
     url_params = list()
 
     def proxy_method(self, method: str, mode: str = 'default', **kwargs):
-        log.info(
-            'Calling proxy method: [%s] mode: [%s] | %s',
-            method, mode, kwargs
-        )
+        log.info(f'API call: method: {method=} mode: {mode=} {kwargs=}')
         handler = self.mode_handlers.get(mode)
         if not handler:
             log.warning(f'api handler not found for mode: {mode}')
@@ -204,7 +201,7 @@ class APIBase(Resource):
 
     def __init__(self, module):
         self.module = module
-        log.info('APIBase init %s | %s', self.mode_handlers, self.url_params)
+        log.debug('APIBase init %s | %s', self.mode_handlers, self.url_params)
 
     def get(self, **kwargs):
         return self.proxy_method('get', **kwargs)

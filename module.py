@@ -73,6 +73,8 @@ class Module(module.ModuleModel):
 
         from .tools.config import Config
         _config = Config(self)
+        from .tools.config_pydantic import TheConfig
+        TheConfig.__old_config = _config
         self.descriptor.register_tool('constants', _config)
         self.descriptor.register_tool('config', _config)
 

@@ -1,15 +1,44 @@
 import traceback
-
 from contextlib import closing
+
 from flask_sqlalchemy import BaseQuery
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.schema import CreateSchema
-from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 
 from pylon.core.tools import log
-from pylon.core.tools import db_support
+from sqlalchemy import MetaData
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.schema import CreateSchema
 
-from tools import config as c, context
+
+
+try:
+    from tools import context
+except ImportError:
+    class _FallbackContext:
+        def __init__(self):
+            self.__dict__['_data'] = {}
+        def __getattr__(self, name):
+            if name not in self._data:
+                self._data[name] = _FallbackContext()
+            return self._data[name]
+        def __setattr__(self, name, value):
+            self._data[name] = value
+        def __repr__(self):
+            def expand(obj):
+                if isinstance(obj, _FallbackContext):
+                    return {k: expand(v) for k, v in obj._data.items()}
+                return obj
+            return repr(expand(self))
+        def __str__(self):
+            return repr(self)
+    context = _FallbackContext()
+
+
+
+try:
+    from tools import config as c
+except ImportError:
+    from config_pydantic import TheConfig
+    c = TheConfig()
 
 
 # DB: local
@@ -17,16 +46,34 @@ def schema_mapper(schema):
     if schema in [..., None, c.POSTGRES_SCHEMA]:
         return ...
     #
-    from tools import project_constants as pc  # pylint: disable=E0401,C0415
+    try:
+        from tools import project_constants as pc  # pylint: disable=E0401,C0415
+    except ImportError:
+        pc = {
+            'INFLUX_DATABASES': {
+                'jmeter_db': 'jmeter_{}',
+                'gatling_db': 'gatling_{}',
+                'comparison_db': 'comparison_{}',
+                'telegraf_db': 'telegraf_{}'
+            },
+            'PROJECT_USER_NAME_PREFIX': ':system:project:',
+
+            'PROJECT_USER_EMAIL_TEMPLATE': 'system_user_{}@centry.user',
+            'PROJECT_SCHEMA_TEMPLATE': 'p_{}',
+            'PROJECT_RABBIT_USER_TEMPLATE': 'rabbit_user_{}',
+            'PROJECT_RABBIT_VHOST_TEMPLATE': 'project_{}_vhost',
+            'PROJECT_PERSONAL_NAME_TEMPLATE': 'project_user_{user_id}',
+        }
+        pc['PROJECT_USER_NAME_TEMPLATE'] = '{}{{}}:'.format(pc['PROJECT_USER_NAME_PREFIX'])
     return pc["PROJECT_SCHEMA_TEMPLATE"].format(schema)
 
 
 # DB: local
 context.db.schema_mapper = schema_mapper
 
-
 # DB: transitional config injector
 if c.FORCE_INJECT_DB or context.db.url == "sqlite://":
+    from pylon.core.tools import db_support
     log.info("Injecting DB config")
     #
     db_support.close_local_session()
@@ -45,10 +92,8 @@ if c.FORCE_INJECT_DB or context.db.url == "sqlite://":
     #
     db_support.create_local_session()
 
-
 # DB: proxy
 engine = context.db.engine
-
 
 # DB: transitional for 'public' schemas on present deployments
 with engine.connect() as connection:
@@ -104,6 +149,7 @@ class SessionProxy(metaclass=SessionProxyMeta):  # pylint: disable=R0902,R0903
     """ Proxy class """
 
     def __getattr__(self, name):
+        from pylon.core.tools import db_support
         db_support.check_local_entities()
         #
         if context.local.db_session is None:
