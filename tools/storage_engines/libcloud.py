@@ -101,17 +101,21 @@ class EngineBase(metaclass=EngineMeta):
             rpc_call = self.rpc_manager.timeout(5)
             #
             if self.project:
-                settings = rpc_call.integrations_get_s3_settings(
-                    self.project["id"], integration_id, is_local,
-                )
+                conf = rpc_call.configurations_get_filtered_project(
+                    project_id=self.project['id'],
+                    include_shared=True,
+                    filter_fields={'id': integration_id}
+                )[0]
             else:
-                settings = rpc_call.integrations_get_s3_admin_settings(integration_id)
+                conf = rpc_call.configurations_get_filtered_public(
+                    filter_fields={'id': integration_id}
+                )[0]
         #
         except queue.Empty:
-            settings = None
+            conf = None
         #
-        if settings:
-            return dict(settings)
+        if conf:
+            return dict(conf)
         #
         return {}
 
@@ -483,19 +487,20 @@ class AdminEngine(EngineBase):
         #
         self.rpc_manager = context.rpc_manager
         #
-        integration_settings = self.extract_access_data(integration_id)
+        conf = self.extract_access_data(integration_id)
         #
-        if integration_settings:
-            storage_libcloud_driver=integration_settings["access_key"]
-            storage_libcloud_params=integration_settings["secret_access_key"]
-            storage_libcloud_encoder=integration_settings["region_name"]
+        if conf:
+            settings = conf['data']
+            storage_libcloud_driver=settings["access_key"]
+            storage_libcloud_params=settings["secret_access_key"]
+            storage_libcloud_encoder=settings["region_name"]
             #
-            if integration_settings["integration_id"] != 1:
+            if conf["id"] != 1:
                 if storage_libcloud_driver == "LOCAL":
-                    raise RuntimeError("Non-default LOCAL integrations are not curently supported")
+                    raise RuntimeError("Non-default LOCAL integrations are not currently supported")
                 #
-                self.integration_id = integration_settings["integration_id"]
-                self.is_local = integration_settings["is_local"]
+                self.integration_id = conf["id"]
+                # self.is_local = integration_settings["is_local"]
                 #
                 super().__init__(
                     storage_libcloud_driver=storage_libcloud_driver,

@@ -40,16 +40,20 @@ class MinioClientABC(ABC, EventManagerMixin):
         rpc_manager = RpcMixin().rpc
         try:
             if self.project:
-                settings = rpc_manager.timeout(2).integrations_get_s3_settings(
-                    self.project['id'], integration_id, is_local)
+                conf = rpc_manager.timeout(2).configurations_get_filtered_project(
+                    project_id=self.project['id'],
+                    include_shared=True,
+                    filter_fields={'id': integration_id}
+                )[0]
             else:
-                settings = rpc_manager.timeout(2).integrations_get_s3_admin_settings(
-                    integration_id)
+                conf = rpc_manager.timeout(2).configurations_get_filtered_public(
+                    filter_fields={'id': integration_id}
+                )[0]
         except Empty:
-            settings = None
-        if settings:
-            self.integration_id = settings['integration_id']
-            self.is_local = settings['is_local']
+            conf = None
+        if conf:
+            self.integration_id = conf['id']
+            settings = conf['data']
             return (
                 settings['access_key'],
                 settings['secret_access_key'],

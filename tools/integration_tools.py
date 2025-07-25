@@ -18,17 +18,17 @@ def _find_config(
         configurations: list,
 ):
     if configuration_personal:
-        integrations = [i for i in configurations if i.get('name') == integration_name]
+        integrations = [i for i in configurations if i.get('type') == integration_name]
     else:
-        integrations = rpc_tools.RpcMixin().rpc.call.integrations_get_all_integrations_by_name(
-            project_id,
-            integration_name
+        integrations = rpc_tools.RpcMixin().rpc.call.configurations_get_filtered_project(
+            project_id=project_id,
+            include_shared=True,
+            filter_fields={'type': integration_name}
         )
-        integrations = [i.dict() for i in integrations]
 
     for i in integrations:
         for k, v in partial_settings.items():
-            if i['settings'].get(k) != v:
+            if i['data'].get(k) != v:
                 break
         else:
             return i
@@ -67,7 +67,7 @@ class ExternalIntegrationSupport(BaseModel):
             raise ValueError(f"Integration with title={self.configuration_title}' does not exist")
 
         for field, integration_field in integration_fields.items():
-            base_dict[field] = integration['settings'].get(integration_field)
+            base_dict[field] = integration['data'].get(integration_field)
 
         return base_dict
 
@@ -111,6 +111,7 @@ class ExternalIntegrationSupport(BaseModel):
 
 
 def generate_create_integration_settings_model_from(IntegrationModel: BaseModel, integration_name: str) -> 'CreateIntegrationModel':
+    # todo: refactor that - why do we need it?
     class CreateIntegrationModel(IntegrationModel):
         project_id: Optional[int] = None
 
@@ -123,11 +124,9 @@ def generate_create_integration_settings_model_from(IntegrationModel: BaseModel,
         def validate_unique_title(cls, values):
             title = values.get('title')
 
-            integrations = rpc_tools.RpcMixin().rpc.call.integrations_get_integrations_by_setting_value(
-                values.get('project_id'),
-                integration_name,
-                "title",
-                title
+            integrations = rpc_tools.RpcMixin().rpc.timeout(2).configurations_get_filtered_project(
+                project_id=values.get('project_id'),
+                filter_fields={'type': integration_name, 'title': title},
             )
 
             if len(integrations) > 0:

@@ -80,17 +80,21 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
             rpc_call = self.rpc_manager.timeout(5)
             #
             if self.project:
-                settings = rpc_call.integrations_get_s3_settings(
-                    self.project["id"], integration_id, is_local,
-                )
+                conf = rpc_call.configurations_get_filtered_project(
+                    project_id=self.project['id'],
+                    include_shared=True,
+                    filter_fields={'id': integration_id}
+                )[0]
             else:
-                settings = rpc_call.integrations_get_s3_admin_settings(integration_id)
+                conf = rpc_call.configurations_get_filtered_public(
+                    filter_fields={'id': integration_id}
+                )[0]
         #
         except queue.Empty:
-            settings = None
+            conf = None
         #
-        if settings:
-            return dict(settings)
+        if conf:
+            return dict(conf)
         #
         return {}
 
@@ -440,11 +444,11 @@ class Engine(EngineBase):
         #
         self.rpc_manager = context.rpc_manager
         #
-        integration_settings = self.extract_access_data(integration_id, is_local)
+        conf = self.extract_access_data(integration_id, is_local)
         #
-        if integration_settings:
-            if integration_settings["integration_id"] != 1:
-                raise RuntimeError("Non-default filesystem integrations are not curently supported")
+        if conf:
+            if conf["id"] != 1:
+                raise RuntimeError("Non-default filesystem integrations are not currently supported")
         else:
             super().__init__()
 
@@ -479,11 +483,11 @@ class AdminEngine(EngineBase):
         #
         self.rpc_manager = context.rpc_manager
         #
-        integration_settings = self.extract_access_data(integration_id)
+        conf = self.extract_access_data(integration_id)
         #
-        if integration_settings:
-            if integration_settings["integration_id"] != 1:
-                raise RuntimeError("Non-default filesystem integrations are not curently supported")
+        if conf:
+            if conf["id"] != 1:
+                raise RuntimeError("Non-default filesystem integrations are not currently supported")
         else:
             super().__init__()
 
