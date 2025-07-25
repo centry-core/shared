@@ -98,7 +98,7 @@ class EngineBase(metaclass=EngineMeta):
         self.driver = driver_cls(*driver_args, **driver_kwargs)
 
     def extract_access_data(self):
-        filter_fields = dict()
+        filter_fields = dict(section='s3')
         if self.configuration_title:
             filter_fields['title'] = self.configuration_title
         try:
