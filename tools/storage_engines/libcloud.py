@@ -23,6 +23,7 @@ import time
 import queue
 import base64
 import datetime
+from typing import Optional
 
 from libcloud.storage.types import Provider  # pylint: disable=E0401
 from libcloud.storage.providers import get_driver  # pylint: disable=E0401
@@ -96,7 +97,10 @@ class EngineBase(metaclass=EngineMeta):
         #
         self.driver = driver_cls(*driver_args, **driver_kwargs)
 
-    def extract_access_data(self, integration_id=None, is_local=True):
+    def extract_access_data(self):
+        filter_fields = dict()
+        if self.configuration_title:
+            filter_fields['title'] = self.configuration_title
         try:
             rpc_call = self.rpc_manager.timeout(5)
             #
@@ -104,11 +108,11 @@ class EngineBase(metaclass=EngineMeta):
                 conf = rpc_call.configurations_get_filtered_project(
                     project_id=self.project['id'],
                     include_shared=True,
-                    filter_fields={'id': integration_id}
+                    filter_fields=filter_fields
                 )[0]
             else:
                 conf = rpc_call.configurations_get_filtered_public(
-                    filter_fields={'id': integration_id}
+                    filter_fields=filter_fields
                 )[0]
         #
         except queue.Empty:
@@ -417,7 +421,7 @@ class EngineBase(metaclass=EngineMeta):
 class Engine(EngineBase):
     """ Engine class """
 
-    def __init__(self, project: dict, integration_id=None, is_local=True, **kwargs):
+    def __init__(self, project: dict, configuration_title: Optional[str] = 'Elitea S3 storage', **kwargs):
         _ = kwargs
         #
         if isinstance(project, dict):
@@ -425,26 +429,25 @@ class Engine(EngineBase):
         else:
             self.project = project.to_json()
         #
-        self.integration_id = integration_id
-        self.is_local = is_local
+        self.configuration_title = configuration_title if configuration_title is not None else 'Elitea S3 storage'
         #
         self.rpc_manager = context.rpc_manager
         #
-        integration_settings = self.extract_access_data(integration_id, is_local)
+        conf = self.extract_access_data()
         #
-        if integration_settings:
-            log.debug("Integration settings: %s", integration_settings)
+        if conf:
+            log.debug("S3 configuration settings: %s", conf)
             #
-            storage_libcloud_driver=integration_settings["access_key"]
-            storage_libcloud_params=integration_settings["secret_access_key"]
-            storage_libcloud_encoder=integration_settings["region_name"]
+            settings = conf['data']
+            storage_libcloud_driver=settings["access_key"]
+            storage_libcloud_params=settings["secret_access_key"]
+            storage_libcloud_encoder=settings["region_name"]
             #
-            if integration_settings["integration_id"] != 1:
+            if conf["title"] != 'Elitea S3 storage':
                 if storage_libcloud_driver == "LOCAL":
-                    raise RuntimeError("Non-default LOCAL integrations are not curently supported")
+                    raise RuntimeError("Non-default LOCAL configurations are not curently supported")
                 #
-                self.integration_id = integration_settings["integration_id"]
-                self.is_local = integration_settings["is_local"]
+                self.configuration = conf
                 #
                 super().__init__(
                     storage_libcloud_driver=storage_libcloud_driver,
@@ -463,7 +466,8 @@ class Engine(EngineBase):
     @classmethod
     def from_project_id(
             cls, project_id: int,
-            integration_id=None, is_local=True, rpc_manager=None,
+            configuration_title: Optional[str] = None,
+            rpc_manager=None,
             **kwargs
     ):
         _ = kwargs
@@ -472,49 +476,8 @@ class Engine(EngineBase):
             rpc_manager = context.rpc_manager
         #
         project = rpc_manager.call.project_get_by_id(project_id=project_id)
-        return cls(project, integration_id, is_local)
+        return cls(project, configuration_title=configuration_title)
 
-
-class AdminEngine(EngineBase):
-    """ Engine admin class """
-
-    def __init__(self, integration_id=None, **kwargs):
-        _ = kwargs
-        #
-        self.project = None
-        self.integration_id = integration_id
-        self.is_local = False
-        #
-        self.rpc_manager = context.rpc_manager
-        #
-        conf = self.extract_access_data(integration_id)
-        #
-        if conf:
-            settings = conf['data']
-            storage_libcloud_driver=settings["access_key"]
-            storage_libcloud_params=settings["secret_access_key"]
-            storage_libcloud_encoder=settings["region_name"]
-            #
-            if conf["id"] != 1:
-                if storage_libcloud_driver == "LOCAL":
-                    raise RuntimeError("Non-default LOCAL integrations are not currently supported")
-                #
-                self.integration_id = conf["id"]
-                # self.is_local = integration_settings["is_local"]
-                #
-                super().__init__(
-                    storage_libcloud_driver=storage_libcloud_driver,
-                    storage_libcloud_params=storage_libcloud_params,
-                    storage_libcloud_encoder=storage_libcloud_encoder,
-                )
-            else:
-                super().__init__()
-        else:
-            super().__init__()
-
-    @property
-    def bucket_prefix(self):
-        return "p--administration."
 
 
 # TODO: engine init() and retention watcher thread

@@ -100,9 +100,8 @@ class Module(module.ModuleModel):
         from .init_db import init_db
         init_db()
 
-        from .tools.minio_client import MinioClient, MinioClientAdmin
+        from .tools.minio_client import MinioClient
         self.descriptor.register_tool('MinioClient', MinioClient)
-        self.descriptor.register_tool('MinioClientAdmin', MinioClientAdmin)
         logging.getLogger("botocore").setLevel(logging.INFO)
 
         from .tools.vault_tools import VaultClient

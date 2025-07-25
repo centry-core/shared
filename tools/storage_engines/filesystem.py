@@ -471,29 +471,4 @@ class Engine(EngineBase):
         return cls(project, integration_id, is_local)
 
 
-class AdminEngine(EngineBase):
-    """ Engine admin class """
-
-    def __init__(self, integration_id=None, **kwargs):
-        _ = kwargs
-        #
-        self.project = None
-        self.integration_id = integration_id
-        self.is_local = False
-        #
-        self.rpc_manager = context.rpc_manager
-        #
-        conf = self.extract_access_data(integration_id)
-        #
-        if conf:
-            if conf["id"] != 1:
-                raise RuntimeError("Non-default filesystem integrations are not currently supported")
-        else:
-            super().__init__()
-
-    @property
-    def bucket_prefix(self):
-        return "p--administration."
-
-
 # TODO: engine init() and retention watcher thread

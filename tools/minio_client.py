@@ -251,20 +251,6 @@ class MinioClientABC(ABC, EventManagerMixin):
         return False
 
 
-class S3MinioClientAdmin(MinioClientABC):
-    def __init__(self,
-                 integration_id: Optional[int] = None,
-                 **kwargs):
-        self.project = None
-        self.integration_id = integration_id
-        self.is_local = False
-        access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id)
-        super().__init__(access_key, secret_access_key, region_name, url)
-
-    @property
-    def bucket_prefix(self) -> str:
-        return 'p--administration.'
-
 
 class S3MinioClient(MinioClientABC):
     @classmethod
@@ -308,14 +294,12 @@ log.info("Using storage engine: %s", c.STORAGE_ENGINE)
 #
 if c.STORAGE_ENGINE == "s3":
     MinioClient = S3MinioClient
-    MinioClientAdmin = S3MinioClientAdmin
 else:
     try:
         engine_pkg = importlib.import_module(
             f"plugins.shared.tools.storage_engines.{c.STORAGE_ENGINE}"
         )
         MinioClient = engine_pkg.Engine
-        MinioClientAdmin = engine_pkg.AdminEngine
     except:  # pylint: disable=W0702
         log.exception("Failed to set storage engine: %s", c.STORAGE_ENGINE)
         raise
