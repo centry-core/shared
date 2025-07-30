@@ -34,6 +34,7 @@ class Module(module.ModuleModel):
 
     def init(self):
         """ Init module """
+
         log.info("Initializing module Shared")
 
         try:
@@ -135,6 +136,9 @@ class Module(module.ModuleModel):
 
         from .tools import integration_tools
         self.descriptor.register_tool('integration_tools', integration_tools)
+
+        from .tools.log_tools import prettify
+        self.descriptor.register_tool('prettify', prettify)
 
         self.descriptor.init_api()
 
