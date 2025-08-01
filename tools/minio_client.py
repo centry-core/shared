@@ -36,23 +36,23 @@ class MinioClientABC(ABC, EventManagerMixin):
         )
         # self.event_manager = EventManagerMixin().event_manager
 
-    def extract_access_data(self, integration_id: Optional[int] = None, is_local: bool = True) -> tuple:
+    def extract_access_data(self, configuration_title: Optional[str] = None, is_local: bool = True) -> tuple:
         rpc_manager = RpcMixin().rpc
         try:
             if self.project:
                 conf = rpc_manager.timeout(2).configurations_get_filtered_project(
                     project_id=self.project['id'],
                     include_shared=True,
-                    filter_fields={'id': integration_id}
+                    filter_fields={'title': configuration_title}
                 )[0]
             else:
                 conf = rpc_manager.timeout(2).configurations_get_filtered_public(
-                    filter_fields={'id': integration_id}
+                    filter_fields={'title': configuration_title}
                 )[0]
         except Empty:
             conf = None
         if conf:
-            self.integration_id = conf['id']
+            # self.integration_id = conf['id']
             settings = conf['data']
             return (
                 settings['access_key'],
@@ -255,30 +255,30 @@ class MinioClientABC(ABC, EventManagerMixin):
 class S3MinioClient(MinioClientABC):
     @classmethod
     def from_project_id(cls, project_id: int,
-                        integration_id: Optional[int] = None,
+                        configuration_title: Optional[str] = None,
                         is_local: bool = True,
                         rpc_manager=None,
                         **kwargs):
         if not rpc_manager:
             rpc_manager = RpcMixin().rpc
         project = rpc_manager.call.project_get_by_id(project_id=project_id)
-        return cls(project, integration_id, is_local)
+        return cls(project, configuration_title, is_local)
 
     def __init__(self, project: dict,
-                 integration_id: Optional[int] = None,
+                 configuration_title: Optional[str] = None,
                  is_local: bool = True,
                  **kwargs):
         if isinstance(project, dict):
             self.project = project
         else:
             self.project = project.to_json()
-        self.integration_id = integration_id
+        self.configuration_title = configuration_title
         self.is_local = is_local
-        access_key, secret_access_key, region_name, url = self.extract_access_data(integration_id,
+        access_key, secret_access_key, region_name, url = self.extract_access_data(configuration_title,
                                                                                    is_local)
         super().__init__(
             access_key, secret_access_key, region_name, url,
-            integration_id=integration_id,
+            configuration_title=configuration_title,
             is_local=is_local
         )
 
