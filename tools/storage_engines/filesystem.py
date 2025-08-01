@@ -75,7 +75,7 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         os.makedirs(self.bucket_path, exist_ok=True)
         os.makedirs(self.meta_path, exist_ok=True)
 
-    def extract_access_data(self, integration_id=None, is_local=True):
+    def extract_access_data(self, configuration_title=None, is_local=True):
         try:
             rpc_call = self.rpc_manager.timeout(5)
             #
@@ -83,11 +83,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
                 conf = rpc_call.configurations_get_filtered_project(
                     project_id=self.project['id'],
                     include_shared=True,
-                    filter_fields={'id': integration_id}
+                    filter_fields={'title': configuration_title}
                 )[0]
             else:
                 conf = rpc_call.configurations_get_filtered_public(
-                    filter_fields={'id': integration_id}
+                    filter_fields={'title': configuration_title}
                 )[0]
         #
         except queue.Empty:
@@ -431,7 +431,7 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
 class Engine(EngineBase):
     """ Engine class """
 
-    def __init__(self, project: dict, integration_id=None, is_local=True, **kwargs):
+    def __init__(self, project: dict, configuration_title=None, is_local=True, **kwargs):
         _ = kwargs
         #
         if isinstance(project, dict):
@@ -439,12 +439,12 @@ class Engine(EngineBase):
         else:
             self.project = project.to_json()
         #
-        self.integration_id = integration_id
+        self.configuration_title = configuration_title
         self.is_local = is_local
         #
         self.rpc_manager = context.rpc_manager
         #
-        conf = self.extract_access_data(integration_id, is_local)
+        conf = self.extract_access_data(configuration_title, is_local)
         #
         if conf:
             if conf["id"] != 1:
@@ -459,7 +459,7 @@ class Engine(EngineBase):
     @classmethod
     def from_project_id(
             cls, project_id: int,
-            integration_id=None, is_local=True, rpc_manager=None,
+            configuration_title=None, is_local=True, rpc_manager=None,
             **kwargs
     ):
         _ = kwargs
@@ -468,7 +468,7 @@ class Engine(EngineBase):
             rpc_manager = context.rpc_manager
         #
         project = rpc_manager.call.project_get_by_id(project_id=project_id)
-        return cls(project, integration_id, is_local)
+        return cls(project, configuration_title, is_local)
 
 
 # TODO: engine init() and retention watcher thread

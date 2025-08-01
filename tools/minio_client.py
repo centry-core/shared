@@ -52,7 +52,6 @@ class MinioClientABC(ABC, EventManagerMixin):
         except Empty:
             conf = None
         if conf:
-            # self.integration_id = conf['id']
             settings = conf['data']
             return (
                 settings['access_key'],
