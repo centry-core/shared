@@ -443,7 +443,7 @@ class Engine(EngineBase):
             storage_libcloud_params=settings["secret_access_key"]
             storage_libcloud_encoder=settings["region_name"]
             #
-            if conf["title"] != 'Elitea S3 storage':
+            if conf["alita_title"] != 'elitea_s3_storage':
                 if storage_libcloud_driver == "LOCAL":
                     raise RuntimeError("Non-default LOCAL configurations are not curently supported")
                 #
