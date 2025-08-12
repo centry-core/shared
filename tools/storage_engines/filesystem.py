@@ -83,11 +83,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
                 conf = rpc_call.configurations_get_filtered_project(
                     project_id=self.project['id'],
                     include_shared=True,
-                    filter_fields={'title': configuration_title}
+                    filter_fields={'alita_title': configuration_title}
                 )[0]
             else:
                 conf = rpc_call.configurations_get_filtered_public(
-                    filter_fields={'title': configuration_title}
+                    filter_fields={'alita_title': configuration_title}
                 )[0]
         #
         except queue.Empty:

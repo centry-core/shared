@@ -100,7 +100,7 @@ class EngineBase(metaclass=EngineMeta):
     def extract_access_data(self):
         filter_fields = dict(section='storage')
         if self.configuration_title:
-            filter_fields['title'] = self.configuration_title
+            filter_fields['alita_title'] = self.configuration_title
         try:
             rpc_call = self.rpc_manager.timeout(5)
             #
@@ -421,7 +421,7 @@ class EngineBase(metaclass=EngineMeta):
 class Engine(EngineBase):
     """ Engine class """
 
-    def __init__(self, project: dict, configuration_title: Optional[str] = 'Elitea S3 storage', **kwargs):
+    def __init__(self, project: dict, configuration_title: Optional[str] = 'elitea_s3_storage', **kwargs):
         _ = kwargs
         #
         if isinstance(project, dict):
@@ -429,7 +429,7 @@ class Engine(EngineBase):
         else:
             self.project = project.to_json()
         #
-        self.configuration_title = configuration_title if configuration_title is not None else 'Elitea S3 storage'
+        self.configuration_title = configuration_title if configuration_title is not None else 'elitea_s3_storage'
         #
         self.rpc_manager = context.rpc_manager
         #
@@ -443,7 +443,7 @@ class Engine(EngineBase):
             storage_libcloud_params=settings["secret_access_key"]
             storage_libcloud_encoder=settings["region_name"]
             #
-            if conf["title"] != 'Elitea S3 storage':
+            if conf["alita_title"] != 'elitea_s3_storage':
                 if storage_libcloud_driver == "LOCAL":
                     raise RuntimeError("Non-default LOCAL configurations are not curently supported")
                 #
