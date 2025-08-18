@@ -90,7 +90,7 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
                     filter_fields={'alita_title': configuration_title}
                 )[0]
         #
-        except queue.Empty:
+        except (queue.Empty, IndexError):
             conf = None
         #
         if conf:
