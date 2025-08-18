@@ -49,7 +49,7 @@ class MinioClientABC(ABC, EventManagerMixin):
                 conf = rpc_manager.timeout(2).configurations_get_filtered_public(
                     filter_fields={'alita_title': configuration_title}
                 )[0]
-        except Empty:
+        except (Empty, IndexError):
             conf = None
         if conf:
             settings = conf['data']
