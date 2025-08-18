@@ -115,7 +115,7 @@ class EngineBase(metaclass=EngineMeta):
                     filter_fields=filter_fields
                 )[0]
         #
-        except queue.Empty:
+        except (queue.Empty, IndexError):
             conf = None
         #
         if conf:
