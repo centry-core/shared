@@ -30,7 +30,7 @@ from libcloud.storage.providers import get_driver  # pylint: disable=E0401
 
 from pylon.core.tools import log  # pylint: disable=E0401,E0611
 
-from tools import context  # pylint: disable=E0401
+from tools import context, this  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
 
 from .. import db
@@ -98,6 +98,9 @@ class EngineBase(metaclass=EngineMeta):
         self.driver = driver_cls(*driver_args, **driver_kwargs)
 
     def extract_access_data(self):
+        if this.descriptor.config.get("always_use_shared_storage", True):
+            return {}
+        #
         filter_fields = dict(section='storage')
         if self.configuration_title:
             filter_fields['alita_title'] = self.configuration_title

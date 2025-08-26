@@ -11,6 +11,7 @@ from pylon.core.tools import log
 
 from .rpc_tools import RpcMixin, EventManagerMixin
 
+from tools import this
 from tools import config as c
 from .minio_tools import space_monitor, throughput_monitor
 
@@ -37,6 +38,9 @@ class MinioClientABC(ABC, EventManagerMixin):
         # self.event_manager = EventManagerMixin().event_manager
 
     def extract_access_data(self, configuration_title: Optional[str] = None, is_local: bool = True) -> tuple:
+        if this.descriptor.config.get("always_use_shared_storage", True):
+            return c.MINIO_ACCESS, c.MINIO_SECRET, c.MINIO_REGION, c.MINIO_URL
+        #
         rpc_manager = RpcMixin().rpc
         try:
             if self.project:

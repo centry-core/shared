@@ -24,7 +24,7 @@ import datetime
 
 from pylon.core.tools import log  # pylint: disable=E0401,E0611
 
-from tools import context  # pylint: disable=E0401
+from tools import context, this  # pylint: disable=E0401
 from tools import config as c  # pylint: disable=E0401
 
 from ..minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
@@ -76,6 +76,9 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         os.makedirs(self.meta_path, exist_ok=True)
 
     def extract_access_data(self, configuration_title=None, is_local=True):
+        if this.descriptor.config.get("always_use_shared_storage", True):
+            return {}
+        #
         try:
             rpc_call = self.rpc_manager.timeout(5)
             #
