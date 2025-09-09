@@ -2,6 +2,7 @@ import ast
 import codecs
 import json
 import textwrap
+from copy import deepcopy
 
 
 def _pretty_print_helper(data: dict|list, indent: int = 4):
@@ -35,9 +36,10 @@ def _pretty_print_helper(data: dict|list, indent: int = 4):
 
 
 def prettify(data: dict|list):
-    data = _pretty_print_helper(data, indent=4)
+    object_copy = deepcopy(data)
+    object_copy = _pretty_print_helper(object_copy, indent=4)
 
     return codecs.decode(
-        json.dumps(data, indent=4),
+        json.dumps(object_copy, indent=4),
         'unicode_escape'
     )
