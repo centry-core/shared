@@ -18,7 +18,7 @@ def _pretty_print_helper(data: dict|list, indent: int = 4):
             data[key] = value_changed
         elif type(value) is str:
             if "Traceback (most recent call last)" in value or value.count('\n') >= 2:
-                indent_value = ' '*(indent+4+len(key))
+                indent_value = ' '*(indent+4+len(str(key)))
                 data[key] = textwrap.indent(f'\n{value}{indent_value}', indent_value)
             elif (value.startswith("{") and value.endswith("}")) or \
                  (value.startswith("[") and value.endswith("]")):
