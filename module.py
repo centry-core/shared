@@ -32,6 +32,17 @@ class Module(module.ModuleModel):
         self.module_tables = {}
         self.original_add_table = None
 
+    def preload(self):
+        """ Preload handler """
+        from pylon.core.tools.context import Context as Holder
+        dummy = Holder()
+        #
+        self.descriptor.register_tool('constants', dummy)
+        self.descriptor.register_tool('config', dummy)
+        self.descriptor.register_tool('db', dummy)
+        self.descriptor.register_tool('db_migrations', dummy)
+        self.descriptor.register_tool('VaultClient', dummy)
+
     def init(self):
         """ Init module """
 
