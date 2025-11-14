@@ -2,15 +2,14 @@ import re
 from uuid import uuid4
 from typing import Optional, Any
 
-from pydantic import BaseModel
-from pydantic.v1 import SecretStr as SecretStrV1
-from pydantic.v1.validators import str_validator
+from pydantic import BaseModel, SecretStr
+from pydantic_core import core_schema
 
 from ..tools.vault_tools import VaultClient
 from pylon.core.tools import log
 
 
-class SecretString(SecretStrV1):
+class SecretString(SecretStr):
     _secret_pattern = re.compile(r'^{{secret\.([A-Za-z0-9_]+)}}$')
 
     def __bool__(self):
@@ -22,13 +21,34 @@ class SecretString(SecretStrV1):
         return len(self._secret_value)
 
     @classmethod
-    def validate(cls, value: str | dict) -> 'SecretString':
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        # Define how Pydantic should validate this type
+        # Use str_schema for proper string validation with type coercion
+        return core_schema.no_info_after_validator_function(
+            cls._validate,
+            core_schema.union_schema([
+                core_schema.is_instance_schema(cls),
+                core_schema.str_schema(),  # Validates and coerces to str
+                core_schema.dict_schema(),
+            ])
+        )
+
+    @classmethod
+    def _validate(cls, value: str | dict) -> 'SecretString':
+        """
+        Validate and construct SecretString.
+        Note: At this point, str_schema() has already validated/coerced strings,
+        so we just need to handle the dict case and construct the instance.
+        """
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
-            value['value'] = str_validator(value['value'])
-        else:
-            value = str_validator(value)
+            # Validate that dict has 'value' key and it's a string
+            if 'value' not in value:
+                raise ValueError("Dict must have 'value' key")
+            if not isinstance(value['value'], str):
+                raise TypeError(f"Dict 'value' must be str, got {type(value['value'])}")
+        # str_schema() already validated/coerced strings, so value is definitely str or dict here
         return cls(value)
 
     def __init__(self, value: str | dict, project_id: Optional[int] = None):
