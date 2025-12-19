@@ -20,6 +20,7 @@ import os
 import sys
 import json
 import queue
+import shutil
 import datetime
 
 from pylon.core.tools import log  # pylint: disable=E0401,E0611
@@ -187,7 +188,7 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         _ = next_continuation_token
         #
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(
+        bucket_path = os.path.join(
             self.bucket_path,
             fs_encode_name(
                 name=bucket_name,
@@ -198,16 +199,33 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         files = []
         #
-        with os.scandir(path) as it:
-            for entry in it:
-                stat = entry.stat()
+        # Recursively walk the bucket directory to support "/" in file names
+        for root, dirs, filenames in os.walk(bucket_path):
+            for filename in filenames:
+                file_path = os.path.join(root, filename)
+                stat = os.stat(file_path)
+                #
+                # Get relative path from bucket root and decode each component
+                rel_path = os.path.relpath(file_path, bucket_path)
+                #
+                # Decode each path component if encoder is set
+                if self.storage_filesystem_encoder:
+                    parts = rel_path.split(os.sep)
+                    decoded_parts = [
+                        fs_decode_name(
+                            name=part,
+                            kind="file",
+                            encoder=self.storage_filesystem_encoder,
+                        )
+                        for part in parts
+                    ]
+                    decoded_name = "/".join(decoded_parts)
+                else:
+                    # No encoding, use the relative path directly (convert os.sep to /)
+                    decoded_name = rel_path.replace(os.sep, "/")
                 #
                 files.append({
-                    "name": fs_decode_name(
-                        name=entry.name,
-                        kind="file",
-                        encoder=self.storage_filesystem_encoder,
-                    ),
+                    "name": decoded_name,
                     "size": stat.st_size,
                     "modified": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 })
@@ -230,6 +248,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
                 encoder=self.storage_filesystem_encoder,
             ),
         )
+        #
+        # Create parent directories if file_name contains "/" (S3-style paths)
+        parent_dir = os.path.dirname(path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         #
         with open(path, "wb") as file:
             if isinstance(file_obj, bytes):
@@ -270,13 +293,16 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
     @space_monitor
     def remove_file(self, bucket, file_name):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(
+        bucket_path = os.path.join(
             self.bucket_path,
             fs_encode_name(
                 name=bucket_name,
                 kind="bucket",
                 encoder=self.storage_filesystem_encoder,
             ),
+        )
+        path = os.path.join(
+            bucket_path,
             fs_encode_name(
                 name=file_name,
                 kind="file",
@@ -286,11 +312,17 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         if os.path.exists(path):
             os.remove(path)
+            #
+            # Clean up empty parent directories (but not the bucket directory itself)
+            parent = os.path.dirname(path)
+            while parent and parent != bucket_path:
+                try:
+                    os.rmdir(parent)  # Only removes if empty
+                    parent = os.path.dirname(parent)
+                except OSError:
+                    break  # Directory not empty or other error
 
     def remove_bucket(self, bucket):
-        for file_obj in self.list_files(bucket):
-            self.remove_file(bucket, file_obj["name"])
-        #
         bucket_name = self.format_bucket_name(bucket)
         path = os.path.join(
             self.bucket_path,
@@ -309,8 +341,9 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
             ),
         )
         #
+        # Use shutil.rmtree to remove bucket with all nested directories (S3-style paths)
         if os.path.exists(path):
-            os.rmdir(path)
+            shutil.rmtree(path)
         #
         if os.path.exists(meta_path):
             os.remove(meta_path)
@@ -338,7 +371,7 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
 
     def get_bucket_size(self, bucket):
         bucket_name = self.format_bucket_name(bucket)
-        path = os.path.join(
+        bucket_path = os.path.join(
             self.bucket_path,
             fs_encode_name(
                 name=bucket_name,
@@ -349,11 +382,11 @@ class EngineBase(metaclass=EngineMeta):  # pylint: disable=R0902
         #
         total_size = 0
         #
-        with os.scandir(path) as it:
-            for entry in it:
-                stat = entry.stat()
-                #
-                total_size += stat.st_size
+        # Recursively calculate size including nested directories (S3-style paths)
+        for root, dirs, filenames in os.walk(bucket_path):
+            for filename in filenames:
+                file_path = os.path.join(root, filename)
+                total_size += os.path.getsize(file_path)
         #
         return total_size
 
