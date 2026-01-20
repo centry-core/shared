@@ -148,6 +148,10 @@ class Module(module.ModuleModel):
         from .tools.log_tools import prettify
         self.descriptor.register_tool('prettify', prettify)
 
+        # OpenAPI tools
+        from .tools import openapi_tools
+        self.descriptor.register_tool('openapi_tools', openapi_tools)
+
         self.descriptor.init_api()
 
     def ready(self):
@@ -177,6 +181,14 @@ class Module(module.ModuleModel):
                 with db.get_session(project["id"]) as tenant_db:
                     tenant_metadata.create_all(bind=tenant_db.connection())
                     tenant_db.commit()
+        #
+        # Make OpenAPI endpoint public (no auth required)
+        try:
+            from tools import auth
+            auth.add_public_rule({"uri": r"^/api/v1/shared/openapi(/.*)?$"})
+            log.info("Registered OpenAPI public rule")
+        except Exception as e:
+            log.warning(f"Could not add OpenAPI public rule: {e}")
 
     def deinit(self):
         """ De-init module """
