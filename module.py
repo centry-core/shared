@@ -149,8 +149,8 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('prettify', prettify)
 
         # OpenAPI tools
-        from .tools import openapi_tools
-        self.descriptor.register_tool('openapi_tools', openapi_tools)
+        from .tools.openapi_tools import openapi
+        self.descriptor.register_tool('openapi', openapi)
 
         self.descriptor.init_api()
 
