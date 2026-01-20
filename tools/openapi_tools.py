@@ -445,3 +445,87 @@ def scan_and_register_apis(
                 # Derive path from module name
                 path = f"{base_api_path}/{plugin_name}/{name.lower()}"
                 register_api_class(obj, plugin_name, path, registry)
+
+
+def register_api_folder(
+    api_package,
+    plugin_name: str,
+    base_path: str,
+    registry: OpenAPIRegistry = None,
+) -> int:
+    """
+    Automatically discover and register all API classes from a package/folder.
+
+    Discovers all Python modules in the package that have an API class with url_params.
+    Path is automatically derived: base_path/module_name (e.g., /api/v2/configurations/models)
+
+    Args:
+        api_package: The API package (e.g., from .api import v2 as api_v2)
+        plugin_name: Plugin name for grouping
+        base_path: Base URL path (e.g., "/api/v2/configurations")
+        registry: OpenAPI registry (defaults to global)
+
+    Returns:
+        Number of API classes registered
+
+    Example:
+        from .api import v2 as api_v2
+
+        register_api_folder(
+            api_package=api_v2,
+            plugin_name="configurations",
+            base_path="/api/v2/configurations",
+        )
+        # Will register:
+        #   configurations.py → /api/v2/configurations/configurations
+        #   models.py → /api/v2/configurations/models
+        #   types.py → /api/v2/configurations/types
+    """
+    import importlib
+    import pkgutil
+
+    if registry is None:
+        registry = openapi_registry
+
+    registered_count = 0
+
+    # Get package path for discovery
+    if hasattr(api_package, "__path__"):
+        # It's a package, iterate through submodules
+        for importer, module_name, is_pkg in pkgutil.iter_modules(api_package.__path__):
+            if module_name.startswith("_"):
+                continue
+
+            try:
+                # Import the submodule
+                module = importlib.import_module(f"{api_package.__name__}.{module_name}")
+
+                # Find API class in module
+                api_class = getattr(module, "API", None)
+                if api_class is None:
+                    continue
+
+                # Check if it has url_params (confirms it's a valid API class)
+                if not hasattr(api_class, "url_params"):
+                    continue
+
+                # Path is base_path/module_name
+                path = f"{base_path}/{module_name}"
+
+                register_api_class(api_class, plugin_name, path, registry)
+                registered_count += 1
+                log.debug(f"OpenAPI: Registered {module_name}.API at {path}")
+
+            except Exception as e:
+                log.warning(f"OpenAPI: Failed to register {module_name}: {e}")
+
+    else:
+        # It's a module, look for API classes directly
+        for name in dir(api_package):
+            obj = getattr(api_package, name)
+            if isinstance(obj, type) and hasattr(obj, "url_params") and name == "API":
+                register_api_class(obj, plugin_name, base_path, registry)
+                registered_count += 1
+
+    log.info(f"OpenAPI: Registered {registered_count} endpoints from {api_package.__name__}")
+    return registered_count
