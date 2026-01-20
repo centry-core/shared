@@ -182,13 +182,14 @@ class Module(module.ModuleModel):
                     tenant_metadata.create_all(bind=tenant_db.connection())
                     tenant_db.commit()
         #
-        # Make OpenAPI endpoint public (no auth required)
+        # Make OpenAPI and Swagger endpoints public (no auth required)
         try:
             from tools import auth
-            auth.add_public_rule({"uri": r"^/api/v1/shared/openapi(/.*)?$"})
-            log.info("Registered OpenAPI public rule")
+            auth.add_public_rule({"uri": r"^/api/v2/shared/openapi(/.*)?$"})
+            auth.add_public_rule({"uri": r"^/api/v2/shared/swagger(/.*)?$"})
+            log.info("Registered OpenAPI and Swagger public rules")
         except Exception as e:
-            log.warning(f"Could not add OpenAPI public rule: {e}")
+            log.warning(f"Could not add OpenAPI/Swagger public rules: {e}")
 
     def deinit(self):
         """ De-init module """
