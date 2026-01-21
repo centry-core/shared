@@ -152,7 +152,7 @@ class Module(module.ModuleModel):
         from .tools.openapi_tools import openapi
         self.descriptor.register_tool('openapi', openapi)
 
-        self.descriptor.init_api()
+        self.descriptor.init_all()
 
     def ready(self):
         """ Ready callback """
@@ -182,14 +182,6 @@ class Module(module.ModuleModel):
                     tenant_metadata.create_all(bind=tenant_db.connection())
                     tenant_db.commit()
         #
-        # Make OpenAPI and Swagger endpoints public (no auth required)
-        try:
-            from tools import auth
-            auth.add_public_rule({"uri": r"^/api/v2/shared/openapi(/.*)?$"})
-            auth.add_public_rule({"uri": r"^/api/v2/shared/swagger(/.*)?$"})
-            log.info("Registered OpenAPI and Swagger public rules")
-        except Exception as e:
-            log.warning(f"Could not add OpenAPI/Swagger public rules: {e}")
 
     def deinit(self):
         """ De-init module """

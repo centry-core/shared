@@ -1,28 +1,25 @@
 """
-OpenAPI Specification Endpoint.
+OpenAPI Specification Routes.
 
 Serves OpenAPI specs for registered plugins.
 
 Endpoints:
-- GET /api/v2/shared/openapi - Combined spec for all plugins
-- GET /api/v2/shared/openapi/<plugin_name> - Single plugin spec
-- GET /api/v2/shared/openapi/plugins - List registered plugins
+- GET /shared/openapi/ - Combined spec for all plugins
+- GET /shared/openapi/<plugin_name> - Single plugin spec (or "plugins" to list)
 """
-from flask import request, Response
+import flask
 
-from ...tools.api_tools import APIBase
-from ...tools.openapi_tools import openapi_registry
+from pylon.core.tools import web
+
+from ..tools.openapi_tools import openapi_registry
 
 
-class API(APIBase):
-    """OpenAPI specification endpoint."""
+class Route:
+    """OpenAPI specification routes."""
 
-    url_params = [
-        '',
-        '<string:plugin_name>',
-    ]
-
-    def get(self, plugin_name: str = None, **kwargs):
+    @web.route("/openapi/", methods=["GET"], endpoint="openapi_spec")
+    @web.route("/openapi/<string:plugin_name>", methods=["GET"], endpoint="openapi_spec_plugin")
+    def openapi(self, plugin_name: str = None):
         """
         Get OpenAPI specification.
 
@@ -33,7 +30,7 @@ class API(APIBase):
             format: 'json' (default) or 'yaml'
             plugins: Comma-separated list of plugins (for combined spec)
         """
-        output_format = request.args.get('format', 'json').lower()
+        output_format = flask.request.args.get('format', 'json').lower()
 
         # List registered plugins
         if plugin_name == "plugins":
@@ -49,7 +46,7 @@ class API(APIBase):
                 }, 404
         else:
             # Combined spec
-            plugins_filter = request.args.get('plugins')
+            plugins_filter = flask.request.args.get('plugins')
             if plugins_filter:
                 plugins = [p.strip() for p in plugins_filter.split(',')]
             else:
@@ -61,10 +58,10 @@ class API(APIBase):
             try:
                 import yaml
                 yaml_content = yaml.dump(spec, default_flow_style=False, sort_keys=False, allow_unicode=True)
-                return Response(
+                return flask.Response(
                     yaml_content,
                     mimetype='application/x-yaml',
-                    headers={'Content-Disposition': f'inline; filename=openapi.yaml'}
+                    headers={'Content-Disposition': 'inline; filename=openapi.yaml'}
                 )
             except ImportError:
                 return {"error": "YAML not available. Install PyYAML."}, 501
