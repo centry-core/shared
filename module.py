@@ -181,7 +181,6 @@ class Module(module.ModuleModel):
                 with db.get_session(project["id"]) as tenant_db:
                     tenant_metadata.create_all(bind=tenant_db.connection())
                     tenant_db.commit()
-        #
 
     def deinit(self):
         """ De-init module """
