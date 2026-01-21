@@ -248,11 +248,44 @@ def build_api_url(
     return url
 
 
+def _get_tracing_context():
+    """Get tracing context if tracing plugin is enabled."""
+    try:
+        from tools import this
+        tracing_module = this.for_module('tracing').module
+        if tracing_module.enabled:
+            tracer = tracing_module.get_tracer()
+            return tracer, True
+    except Exception:
+        pass
+    return None, False
+
+
+def _extract_trace_id():
+    """Extract trace ID from request headers."""
+    # Try W3C traceparent header first
+    traceparent = request.headers.get('traceparent')
+    if traceparent:
+        try:
+            parts = traceparent.split('-')
+            if len(parts) >= 2:
+                return parts[1]
+        except Exception:
+            pass
+
+    # Try custom X-Trace-ID header
+    return request.headers.get('X-Trace-ID')
+
+
 def endpoint_metrics(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
         from tools import auth, rpc_tools
         start_time, date_ = time.perf_counter(), datetime.now()
+
+        # Extract trace ID from request
+        trace_id = _extract_trace_id()
+
         req_body = dict()
         if request.content_type == 'application/json':
             if request.json:
@@ -260,7 +293,9 @@ def endpoint_metrics(function):
                     req_body = dict(request.json)
                 except Exception as e:
                     log.warning(f'endpoint_metrics body issue {req_body}')
+
         payload = {
+            'trace_id': trace_id,  # Include trace ID in metrics
             'project_id': request.view_args.get('project_id', kwargs.get('project_id')),
             'mode': request.view_args.get('mode', kwargs.get('mode')),
             'endpoint': request.endpoint,
@@ -274,6 +309,10 @@ def endpoint_metrics(function):
         }
         if request.files:
             payload['files'] = {k: secure_filename(v.filename) for k, v in request.files.to_dict().items()}
+
+        # Check if tracing is enabled
+        tracer, tracing_enabled = _get_tracing_context()
+
         def modified_function(*args, **kwargs):
             @after_this_request
             def send_metrics(response):
@@ -287,8 +326,52 @@ def endpoint_metrics(function):
                 rpc_tools.EventManagerMixin().event_manager.fire_event('usage_api_monitor', payload)
                 return response
             return function(*args, **kwargs)
-        response = modified_function(*args, **kwargs)
-        return response
+
+        # Execute with or without tracing
+        if tracing_enabled and tracer:
+            from opentelemetry.trace import Status, StatusCode, SpanKind
+            from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+            # Extract parent context from headers
+            propagator = TraceContextTextMapPropagator()
+            ctx = propagator.extract(carrier=dict(request.headers))
+
+            span_name = f"{request.method} {request.endpoint}"
+            with tracer.start_as_current_span(
+                span_name,
+                context=ctx,
+                kind=SpanKind.SERVER,
+                attributes={
+                    'http.method': request.method,
+                    'http.url': request.url,
+                    'http.route': request.endpoint,
+                    'http.scheme': request.scheme,
+                    'http.host': request.host,
+                    'project.id': payload.get('project_id'),
+                    'user.id': payload.get('user'),
+                    'trace.id': trace_id,
+                }
+            ) as span:
+                try:
+                    response = modified_function(*args, **kwargs)
+                    status_code = response[1] if isinstance(response, tuple) else 200
+                    span.set_attribute('http.status_code', status_code)
+
+                    if status_code >= 400:
+                        span.set_status(Status(StatusCode.ERROR, f"HTTP {status_code}"))
+                    else:
+                        span.set_status(Status(StatusCode.OK))
+
+                    return response
+                except Exception as e:
+                    span.set_status(Status(StatusCode.ERROR, str(e)))
+                    span.record_exception(e)
+                    raise
+        else:
+            # No tracing - just run the function
+            response = modified_function(*args, **kwargs)
+            return response
+
     return wrapper
 
 
