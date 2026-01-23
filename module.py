@@ -148,7 +148,12 @@ class Module(module.ModuleModel):
         from .tools.log_tools import prettify
         self.descriptor.register_tool('prettify', prettify)
 
-        self.descriptor.init_api()
+        # OpenAPI tools
+        from .tools.openapi_tools import openapi
+        self.descriptor.register_tool('openapi', openapi)
+
+        # self.descriptor.init_api()
+        self.descriptor.init_blueprint()
 
     def ready(self):
         """ Ready callback """
@@ -191,6 +196,8 @@ class Module(module.ModuleModel):
             self.context.manager.unregister_reload_hook(self._reload_hook)
         except:  # pylint: disable=W0702
             pass
+
+        self.descriptor.deinit_blueprint()
 
     def init_filters(self):
         # Register custom Jinja filters
