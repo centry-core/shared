@@ -150,6 +150,8 @@ class EngineBase(metaclass=EngineMeta):
                 session.add(meta_obj)
             else:
                 meta_obj.data = meta
+            #
+            session.commit()
 
     def _load_meta(self, bucket):
         bucket_name = fs_encode_name(
