@@ -124,12 +124,23 @@ def get(project_id: Optional[int], args: dict, data_model,
     return total, res
 
 
-def upload_file_base(bucket: str, data: bytes, file_name: str, client, create_if_not_exists: bool = True) -> None:
+def upload_file_base(bucket: str, data: bytes, file_name: str, client, create_if_not_exists: bool = True, overwrite_attachments: bool = False) -> None:
     # avoid using this, try MinioClient instead
     if create_if_not_exists:
         if bucket not in client.list_bucket():
             bucket_type = 'system' if bucket in ('tasks', 'tests') else 'local'
             client.create_bucket(bucket=bucket, bucket_type=bucket_type)
+    
+    if overwrite_attachments:
+        try:
+            bucket_files = client.list_files(bucket)
+            for bf in bucket_files:
+                if bf['name'] == file_name:
+                    client.remove_file(bucket, file_name)
+                    break
+        except Exception:
+            pass
+    
     client.upload_file(bucket, data, file_name)
 
 
