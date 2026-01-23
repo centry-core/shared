@@ -142,13 +142,14 @@ class EngineBase(metaclass=EngineMeta):
             kind="meta",
             encoder=self.storage_libcloud_encoder,
         )
-        meta_obj = StorageMeta.query.get(bucket_name)
-        if meta_obj is None:
-            meta_obj = StorageMeta(id=bucket_name, data=meta)
-            meta_obj.insert()
-        else:
-            meta_obj.data = meta
-            meta_obj.commit()
+        with context.db.make_session() as session:
+            meta_obj = session.query(StorageMeta).get(bucket_name)
+            #
+            if meta_obj is None:
+                meta_obj = StorageMeta(id=bucket_name, data=meta)
+                session.add(meta_obj)
+            else:
+                meta_obj.data = meta
 
     def _load_meta(self, bucket):
         bucket_name = fs_encode_name(
@@ -156,10 +157,13 @@ class EngineBase(metaclass=EngineMeta):
             kind="meta",
             encoder=self.storage_libcloud_encoder,
         )
-        meta_obj = StorageMeta.query.get(bucket_name)
-        if meta_obj is None:
-            return {}
-        return meta_obj.data
+        with context.db.make_session() as session:
+            meta_obj = session.query(StorageMeta).get(bucket_name)
+            #
+            if meta_obj is None:
+                return {}
+            #
+            return meta_obj.data
 
     def list_bucket(self):
         result = []
