@@ -151,7 +151,11 @@ class EngineBase(metaclass=EngineMeta):
             else:
                 meta_obj.data = meta
             #
-            session.commit()
+            try:
+                session.commit()
+            except:  # pylint: disable=W0702
+                session.rollback()
+                raise
 
     def _load_meta(self, bucket):
         bucket_name = fs_encode_name(
