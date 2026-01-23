@@ -54,16 +54,18 @@ class Engine(EngineBase):  # pylint: disable=R0902
         else:
             data = Fernet(self.master_key).encrypt(key)
         #
-        key_obj = SecretsKey.query.get(self.db_key)
-        if key_obj is None:
-            key_obj = SecretsKey(id=self.db_key, data=data)
-            key_obj.insert()
-        else:
-            key_obj.data = data
-            key_obj.commit()
+        with context.db.make_session() as session:
+            key_obj = session.query(SecretsKey).get(self.db_key)
+            #
+            if key_obj is None:
+                key_obj = SecretsKey(id=self.db_key, data=data)
+                session.add(key_obj)
+            else:
+                key_obj.data = data
 
     def _read_key(self):
-        data = SecretsKey.query.get(self.db_key).data
+        with context.db.make_session() as session:
+            data = session.query(SecretsKey).get(self.db_key).data
         #
         if self.master_key is not None:
             return Fernet(self.master_key).decrypt(data)
@@ -74,28 +76,34 @@ class Engine(EngineBase):  # pylint: disable=R0902
         key = self._read_key()
         data = Fernet(key).encrypt(json.dumps(data).encode())
         #
-        data_obj = SecretsData.query.get(self.db_key)
-        if data_obj is None:
-            data_obj = SecretsData(id=self.db_key, data=data)
-            data_obj.insert()
-        else:
-            data_obj.data = data
-            data_obj.commit()
+        with context.db.make_session() as session:
+            data_obj = session.query(SecretsData).get(self.db_key)
+            #
+            if data_obj is None:
+                data_obj = SecretsData(id=self.db_key, data=data)
+                session.add(data_obj)
+            else:
+                data_obj.data = data
 
     def _read(self):
         key = self._read_key()
-        data = SecretsData.query.get(self.db_key).data
+        with context.db.make_session() as session:
+            data = session.query(SecretsData).get(self.db_key).data
         return json.loads(Fernet(key).decrypt(data).decode())
 
     def create_project_space(self, *args, **kwargs):
         _ = args, kwargs
         #
-        key_obj = SecretsKey.query.get(self.db_key)
+        with context.db.make_session() as session:
+            key_obj = session.query(SecretsKey).get(self.db_key)
+        #
         if key_obj is None:
             key = Fernet.generate_key()
             self._write_key(key)
         #
-        data_obj = SecretsData.query.get(self.db_key)
+        with context.db.make_session() as session:
+            data_obj = session.query(SecretsData).get(self.db_key)
+        #
         if data_obj is None:
             self._write({
                 "secrets": {},
@@ -107,10 +115,13 @@ class Engine(EngineBase):  # pylint: disable=R0902
     def remove_project_space(self, *args, **kwargs):
         _ = args, kwargs
         #
-        key_obj = SecretsKey.query.get(self.db_key)
-        if key_obj is not None:
-            key_obj.delete()
-        #
-        data_obj = SecretsData.query.get(self.db_key)
-        if data_obj is not None:
-            data_obj.delete()
+        with context.db.make_session() as session:
+            key_obj = session.query(SecretsKey).get(self.db_key)
+            #
+            if key_obj is not None:
+                session.delete(key_obj)
+            #
+            data_obj = session.query(SecretsData).get(self.db_key)
+            #
+            if data_obj is not None:
+                session.delete(data_obj)
