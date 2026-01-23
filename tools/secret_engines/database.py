@@ -62,6 +62,8 @@ class Engine(EngineBase):  # pylint: disable=R0902
                 session.add(key_obj)
             else:
                 key_obj.data = data
+            #
+            session.commit()
 
     def _read_key(self):
         with context.db.make_session() as session:
@@ -84,6 +86,8 @@ class Engine(EngineBase):  # pylint: disable=R0902
                 session.add(data_obj)
             else:
                 data_obj.data = data
+            #
+            session.commit()
 
     def _read(self):
         key = self._read_key()
@@ -125,3 +129,5 @@ class Engine(EngineBase):  # pylint: disable=R0902
             #
             if data_obj is not None:
                 session.delete(data_obj)
+            #
+            session.commit()
