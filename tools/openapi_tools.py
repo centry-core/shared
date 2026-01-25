@@ -5,7 +5,7 @@ Provides automatic OpenAPI spec generation by decorating API methods.
 Works alongside the existing @auth.decorators.check_api() decorator.
 
 Usage in plugin API:
-    from tools.openapi_tools import openapi, openapi_registry
+    from ...local_tools import openapi
 
     class API(APIBase):
         url_params = ['<int:project_id>/<int:config_id>']
@@ -20,37 +20,59 @@ Usage in plugin API:
             ...
 
 Usage in plugin module.py:
-    from tools.openapi_tools import openapi_registry
+    from tools import openapi_registry
 
-    def init(self):
-        self.descriptor.init_all()
+    def _register_openapi(self):
+        from .api import v2 as api_v2
         openapi_registry.register_plugin(
-            plugin_name="configurations",
+            plugin_name="my_plugin",
             version="1.0.0",
-            api_module=self,  # Will auto-scan API classes
+            api_module=api_v2,  # Will auto-scan all API classes in the package
         )
 """
-from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 from pydantic import BaseModel
 
 from pylon.core.tools import log
 
 
-def pydantic_to_openapi_schema(model: Type[BaseModel]) -> Dict[str, Any]:
-    """Convert Pydantic model to OpenAPI schema."""
+def pydantic_to_openapi_schema(model: Type[BaseModel]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Convert Pydantic model to OpenAPI schema.
+
+    Returns:
+        Tuple of (schema, definitions) where definitions contains all $defs
+        that should be added to components/schemas
+    """
     try:
         schema = model.model_json_schema()
     except AttributeError:
         schema = model.schema()
 
+    # Extract $defs to be added at root level
+    definitions = {}
     if "$defs" in schema:
-        defs = schema.pop("$defs")
-        if "definitions" not in schema:
-            schema["definitions"] = {}
-        schema["definitions"].update(defs)
+        definitions = schema.pop("$defs")
 
-    return schema
+    # Convert internal $ref to OpenAPI format
+    schema = _convert_refs_to_components(schema)
+
+    return schema, definitions
+
+
+def _convert_refs_to_components(obj):
+    """Recursively convert $defs references to #/components/schemas/ references."""
+    if isinstance(obj, dict):
+        if "$ref" in obj:
+            # Convert #/$defs/ModelName to #/components/schemas/ModelName
+            ref = obj["$ref"]
+            if ref.startswith("#/$defs/"):
+                obj["$ref"] = ref.replace("#/$defs/", "#/components/schemas/")
+        return {k: _convert_refs_to_components(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_refs_to_components(item) for item in obj]
+    else:
+        return obj
 
 
 class OpenAPIRegistry:
@@ -63,7 +85,6 @@ class OpenAPIRegistry:
     def __init__(self):
         self._plugins: Dict[str, Dict] = {}
         self._endpoints: Dict[str, List[Dict]] = {}
-        self._schemas: Dict[str, Dict] = {}
 
     def register_plugin(
         self,
@@ -71,8 +92,21 @@ class OpenAPIRegistry:
         version: str = "1.0.0",
         description: str = "",
         tags: Optional[List[Dict]] = None,
+        api_module=None,
+        base_path: Optional[str] = None,
     ) -> None:
-        """Register a plugin for OpenAPI documentation."""
+        """
+        Register a plugin for OpenAPI documentation.
+
+        Args:
+            plugin_name: Plugin name for grouping
+            version: API version string
+            description: Plugin description
+            tags: Optional list of OpenAPI tag definitions
+            api_module: The API package/module to auto-discover endpoints from.
+                       If provided, will scan all submodules for API classes.
+            base_path: Base URL path for APIs (defaults to /api/v2/{plugin_name})
+        """
         self._plugins[plugin_name] = {
             "version": version,
             "description": description,
@@ -80,6 +114,16 @@ class OpenAPIRegistry:
         }
         if plugin_name not in self._endpoints:
             self._endpoints[plugin_name] = []
+
+        # Auto-register APIs from module if provided
+        if api_module is not None:
+            effective_base_path = base_path or f"/api/v2/{plugin_name}"
+            register_api_folder(
+                api_package=api_module,
+                plugin_name=plugin_name,
+                base_path=effective_base_path,
+            )
+
         log.info(f"OpenAPI: Registered plugin '{plugin_name}' v{version}")
 
     def register_endpoint(
@@ -118,9 +162,6 @@ class OpenAPIRegistry:
             "deprecated": deprecated,
         })
 
-    def register_schema(self, name: str, model: Type[BaseModel]) -> None:
-        """Register a Pydantic model as a reusable schema."""
-        self._schemas[name] = pydantic_to_openapi_schema(model)
 
     def get_plugin_spec(self, plugin_name: str) -> Dict[str, Any]:
         """Generate OpenAPI spec for a single plugin."""
@@ -231,7 +272,10 @@ class OpenAPIRegistry:
             if endpoint["request_body"] and method in ["post", "put", "patch"]:
                 model = endpoint["request_body"]
                 schema_name = model.__name__
-                spec["components"]["schemas"][schema_name] = pydantic_to_openapi_schema(model)
+                schema, definitions = pydantic_to_openapi_schema(model)
+                spec["components"]["schemas"][schema_name] = schema
+                # Add all nested definitions to components/schemas
+                spec["components"]["schemas"].update(definitions)
                 operation["requestBody"] = {
                     "required": True,
                     "content": {
@@ -245,7 +289,10 @@ class OpenAPIRegistry:
             if endpoint["response_model"]:
                 model = endpoint["response_model"]
                 schema_name = model.__name__
-                spec["components"]["schemas"][schema_name] = pydantic_to_openapi_schema(model)
+                schema, definitions = pydantic_to_openapi_schema(model)
+                spec["components"]["schemas"][schema_name] = schema
+                # Add all nested definitions to components/schemas
+                spec["components"]["schemas"].update(definitions)
                 operation["responses"]["200"] = {
                     "description": "Success",
                     "content": {
@@ -286,33 +333,24 @@ def openapi(
             summary="Get Configuration",
             description="Retrieves a configuration by ID",
             response_model=ConfigurationDetails,
-            parameters=[
-                {"name": "project_id", "in": "path", "required": True, "schema": {"type": "integer"}}
-            ]
         )
         @auth.decorators.check_api({...})
         def get(self, project_id: int, config_id: int, **kwargs):
             ...
     """
     def decorator(func: Callable) -> Callable:
-        # Store metadata on the function
+        # Store metadata directly on the function - no wrapper needed
         func._openapi = {
             "summary": summary,
             "description": description,
-            "tags": tags,
+            "tags": tags or [],
             "parameters": parameters or [],
             "request_body": request_body,
             "response_model": response_model,
             "responses": responses,
             "deprecated": deprecated,
         }
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        wrapper._openapi = func._openapi
-        return wrapper
+        return func
 
     return decorator
 
@@ -416,35 +454,6 @@ def register_api_class(
         )
 
 
-def scan_and_register_apis(
-    plugin_name: str,
-    api_module,
-    base_api_path: str = "/api/v1",
-    registry: OpenAPIRegistry = None,
-) -> None:
-    """
-    Scan a plugin's API module and register all decorated endpoints.
-
-    Args:
-        plugin_name: Plugin name
-        api_module: The plugin's api module or list of API classes
-        base_api_path: Base API path prefix
-        registry: OpenAPI registry
-    """
-    if registry is None:
-        registry = openapi_registry
-
-    # If it's a list of (path, class) tuples
-    if isinstance(api_module, list):
-        for path, api_class in api_module:
-            register_api_class(api_class, plugin_name, path, registry)
-    # If it's a module, try to find API classes
-    elif hasattr(api_module, "__dict__"):
-        for name, obj in api_module.__dict__.items():
-            if isinstance(obj, type) and hasattr(obj, "url_params"):
-                # Derive path from module name
-                path = f"{base_api_path}/{plugin_name}/{name.lower()}"
-                register_api_class(obj, plugin_name, path, registry)
 
 
 def register_api_folder(
