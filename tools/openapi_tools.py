@@ -276,12 +276,24 @@ class OpenAPIRegistry:
                 spec["components"]["schemas"][schema_name] = schema
                 # Add all nested definitions to components/schemas
                 spec["components"]["schemas"].update(definitions)
+
+                request_body_content = {
+                    "schema": {"$ref": f"#/components/schemas/{schema_name}"}
+                }
+
+                if "examples" in schema:
+                    examples = schema["examples"]
+                    if isinstance(examples, list) and len(examples) > 0:
+                        # OpenAPI 3.0 uses 'examples' (plural) with named examples
+                        request_body_content["examples"] = {
+                            f"example{i+1}": {"value": ex}
+                            for i, ex in enumerate(examples)
+                        }
+
                 operation["requestBody"] = {
                     "required": True,
                     "content": {
-                        "application/json": {
-                            "schema": {"$ref": f"#/components/schemas/{schema_name}"}
-                        }
+                        "application/json": request_body_content
                     }
                 }
 
@@ -293,12 +305,24 @@ class OpenAPIRegistry:
                 spec["components"]["schemas"][schema_name] = schema
                 # Add all nested definitions to components/schemas
                 spec["components"]["schemas"].update(definitions)
+
+                response_content = {
+                    "schema": {"$ref": f"#/components/schemas/{schema_name}"}
+                }
+
+                # Extract examples from schema for better Swagger UI display
+                if "examples" in schema:
+                    examples = schema["examples"]
+                    if isinstance(examples, list) and len(examples) > 0:
+                        response_content["examples"] = {
+                            f"example{i+1}": {"value": ex}
+                            for i, ex in enumerate(examples)
+                        }
+
                 operation["responses"]["200"] = {
                     "description": "Success",
                     "content": {
-                        "application/json": {
-                            "schema": {"$ref": f"#/components/schemas/{schema_name}"}
-                        }
+                        "application/json": response_content
                     }
                 }
 
