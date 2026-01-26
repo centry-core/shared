@@ -75,6 +75,62 @@ def _convert_refs_to_components(obj):
         return obj
 
 
+def build_mcp_input_schema(endpoint: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build MCP inputSchema from OpenAPI endpoint parameters and request body.
+    Args: endpoint dictionary with parameters and request_body
+    Returns: JSON Schema compatible inputSchema for MCP
+    """
+    properties = {}
+    required = []
+
+    for param in endpoint.get("parameters", []):
+        param_name = param.get("name")
+        param_in = param.get("in")
+        param_required = param.get("required", False)
+        param_schema = param.get("schema", {"type": "string"})
+        param_description = param.get("description", "")
+
+        if param_in in ("path", "query"):
+            properties[param_name] = {
+                **param_schema,
+                "description": param_description or f"{param_in.title()} parameter: {param_name}",
+            }
+            if param_required or param_in == "path":
+                required.append(param_name)
+
+    request_body = endpoint.get("request_body")
+    if request_body is not None:
+        try:
+            body_schema, _ = pydantic_to_openapi_schema(request_body)
+            if "properties" in body_schema:
+                for prop_name, prop_schema in body_schema["properties"].items():
+                    properties[prop_name] = prop_schema
+                if "required" in body_schema:
+                    required.extend(body_schema["required"])
+        except Exception as e:
+            log.warning(f"Failed to convert request body schema: {e}")
+
+    seen = set()
+    unique_required = []
+    for r in required:
+        if r not in seen:
+            seen.add(r)
+            unique_required.append(r)
+
+    schema = {
+        "type": "object",
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": properties,
+        "additionalProperties": False,
+    }
+
+    if unique_required:
+        schema["required"] = unique_required
+
+    return schema
+
+
 class OpenAPIRegistry:
     """
     Global registry for OpenAPI specifications.
@@ -331,6 +387,57 @@ class OpenAPIRegistry:
     def list_plugins(self) -> List[str]:
         """List all registered plugins."""
         return list(self._plugins.keys())
+
+    def get_mcp_api_tools(
+        self,
+        plugins: Optional[List[str]] = None,
+        include_deprecated: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """
+        Returns: list of MCP Tool dictionaries with name, description, and inputSchema
+        """
+        tools = []
+        target_plugins = plugins or list(self._plugins.keys())
+        for plugin_name in target_plugins:
+            if plugin_name not in self._endpoints:
+                continue
+            for endpoint in self._endpoints[plugin_name]:
+                if endpoint.get("deprecated", False) and not include_deprecated:
+                    continue
+                tool = self._endpoint_to_mcp_tool(endpoint)
+                if tool:
+                    tools.append(tool)
+        return tools
+
+    def _endpoint_to_mcp_tool(
+        self,
+        endpoint: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Convert a single OpenAPI endpoint to MCP Tool format.
+        """
+        method = endpoint["method"]
+        path = endpoint["path"]
+        summary = endpoint.get("summary", "")
+        description = endpoint.get("description", "") or summary
+        path_parts = [p for p in path.split("/") if p and not p.startswith("{")]
+        tool_name = _sanitize_mcp_tool_name([method] + path_parts[-2:])
+
+        args_schema = build_mcp_input_schema(endpoint)
+
+        return {
+            "label": tool_name,
+            "value": tool_name,
+            "args_schema": args_schema,
+            "description": f"{description}".strip() if description else summary,
+        }
+
+
+def _sanitize_mcp_tool_name(parts: list) -> str:
+    """Convert list of parts to camelCase."""
+    if not parts:
+        return ""
+    return parts[0].lower() + ''.join(word.capitalize() for word in parts[1:])
 
 
 # Global registry instance
