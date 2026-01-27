@@ -196,6 +196,7 @@ class OpenAPIRegistry:
         responses: Optional[Dict] = None,
         security: Optional[List[Dict]] = None,
         deprecated: bool = False,
+        mcp_tool: bool = False,
     ) -> None:
         """Register an API endpoint."""
         if plugin_name not in self._endpoints:
@@ -216,6 +217,7 @@ class OpenAPIRegistry:
             "responses": responses,
             "security": security,
             "deprecated": deprecated,
+            "mcp_tool": mcp_tool,
         })
 
 
@@ -404,6 +406,8 @@ class OpenAPIRegistry:
             for endpoint in self._endpoints[plugin_name]:
                 if endpoint.get("deprecated", False) and not include_deprecated:
                     continue
+                if not endpoint.get("mcp_tool", False):
+                    continue
                 tool = self._endpoint_to_mcp_tool(endpoint)
                 if tool:
                     tools.append(tool)
@@ -430,6 +434,9 @@ class OpenAPIRegistry:
             "value": tool_name,
             "args_schema": args_schema,
             "description": f"{description}".strip() if description else summary,
+            "method": method,
+            "path": path,
+            "parameters": endpoint.get("parameters", []),
         }
 
 
@@ -453,6 +460,7 @@ def openapi(
     response_model: Optional[Type[BaseModel]] = None,
     responses: Optional[Dict] = None,
     deprecated: bool = False,
+    mcp_tool: bool = False,
 ):
     """
     Decorator to document API methods with OpenAPI metadata.
@@ -480,6 +488,7 @@ def openapi(
             "response_model": response_model,
             "responses": responses,
             "deprecated": deprecated,
+            "mcp_tool": mcp_tool,
         }
         return func
 
@@ -582,6 +591,7 @@ def register_api_class(
             response_model=openapi_meta.get("response_model"),
             responses=openapi_meta.get("responses"),
             deprecated=openapi_meta.get("deprecated", False),
+            mcp_tool=openapi_meta.get("mcp_tool", False),
         )
 
 
