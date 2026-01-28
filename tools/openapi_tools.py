@@ -581,10 +581,13 @@ def register_api_class(
     mode_handlers = getattr(api_class, "mode_handlers", {})
     classes_to_check = [api_class]  # Start with the API class itself
 
-    # Add all mode handler classes
+    # Add all mode handler classes and determine default mode
+    default_mode = None
     if mode_handlers:
         log.debug(f"OpenAPI: Found mode_handlers in {api_class.__name__}: {list(mode_handlers.keys())}")
         classes_to_check.extend(mode_handlers.values())
+        # Set default mode to first mode handler key (typically 'prompt_lib')
+        default_mode = list(mode_handlers.keys())[0]
 
     # Check all classes (API class + mode handlers) for decorated methods
     endpoints_registered = 0
@@ -605,6 +608,14 @@ def register_api_class(
                 # Don't duplicate path params
                 if not any(p["name"] == param["name"] for p in all_params):
                     all_params.append(param)
+
+            # Set default value for 'mode' parameter if mode_handlers exist
+            if default_mode:
+                for param in all_params:
+                    if param["name"] == "mode" and param["in"] == "path":
+                        param["schema"]["default"] = default_mode
+                        param["description"] = f"Mode (default: {default_mode})"
+                        break
 
             registry.register_endpoint(
                 plugin_name=plugin_name,
