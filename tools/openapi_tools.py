@@ -444,8 +444,17 @@ def _sanitize_mcp_tool_name(parts: list) -> str:
     """Convert list of parts to camelCase."""
     if not parts:
         return ""
-    return parts[0].lower() + ''.join(word.capitalize() for word in parts[1:])
 
+    processed_parts = []
+    for i, part in enumerate(parts):
+        sub_parts = part.split('_')
+        if i == 0:
+            processed = sub_parts[0].lower() + ''.join(sp.capitalize() for sp in sub_parts[1:])
+        else:
+            processed = ''.join(sp.capitalize() for sp in sub_parts)
+        processed_parts.append(processed)
+
+    return ''.join(processed_parts)
 
 # Global registry instance
 openapi_registry = OpenAPIRegistry()
@@ -584,7 +593,6 @@ def register_api_class(
     # Add all mode handler classes and determine default mode
     default_mode = None
     if mode_handlers:
-        log.debug(f"OpenAPI: Found mode_handlers in {api_class.__name__}: {list(mode_handlers.keys())}")
         classes_to_check.extend(mode_handlers.values())
         # Set default mode to first mode handler key (typically 'prompt_lib')
         default_mode = list(mode_handlers.keys())[0]
