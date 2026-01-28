@@ -11,7 +11,7 @@ Usage in plugin API:
         url_params = ['<int:project_id>/<int:config_id>']
 
         @openapi(
-            summary="Get Configuration",
+            name="Get Configuration",
             description="Get configuration by ID",
             response_model=ConfigurationDetails,
         )
@@ -187,7 +187,7 @@ class OpenAPIRegistry:
         plugin_name: str,
         path: str,
         method: str,
-        summary: str,
+        name: str,
         description: str = "",
         tags: Optional[List[str]] = None,
         parameters: Optional[List[Dict]] = None,
@@ -208,7 +208,7 @@ class OpenAPIRegistry:
         self._endpoints[plugin_name].append({
             "path": openapi_path,
             "method": method.lower(),
-            "summary": summary,
+            "name": name,
             "description": description,
             "tags": tags or [plugin_name],
             "parameters": parameters or [],
@@ -306,7 +306,7 @@ class OpenAPIRegistry:
                 spec["paths"][path] = {}
 
             operation = {
-                "summary": endpoint["summary"],
+                "name": endpoint["name"],
                 "description": endpoint["description"],
                 "tags": endpoint["tags"],
                 "parameters": endpoint["parameters"],
@@ -422,8 +422,8 @@ class OpenAPIRegistry:
         """
         method = endpoint["method"]
         path = endpoint["path"]
-        summary = endpoint.get("summary", "")
-        description = endpoint.get("description", "") or summary
+        name = endpoint.get("name", "")
+        description = endpoint.get("description", "") or name
         path_parts = [p for p in path.split("/") if p and not p.startswith("{")]
         tool_name = _sanitize_mcp_tool_name([method] + path_parts[-2:])
 
@@ -433,7 +433,7 @@ class OpenAPIRegistry:
             "label": tool_name,
             "value": tool_name,
             "args_schema": args_schema,
-            "description": f"{description}".strip() if description else summary,
+            "description": f"{description}".strip() if description else name,
             "method": method,
             "path": path,
             "parameters": endpoint.get("parameters", []),
@@ -460,8 +460,8 @@ def _sanitize_mcp_tool_name(parts: list) -> str:
 openapi_registry = OpenAPIRegistry()
 
 
-def openapi(
-    summary: str,
+def register_openapi(
+    name: str,
     description: str = "",
     tags: Optional[List[str]] = None,
     parameters: Optional[List[Dict]] = None,
@@ -478,7 +478,7 @@ def openapi(
 
     Example:
         @openapi(
-            summary="Get Configuration",
+            name="Get Configuration",
             description="Retrieves a configuration by ID",
             response_model=ConfigurationDetails,
         )
@@ -489,7 +489,7 @@ def openapi(
     def decorator(func: Callable) -> Callable:
         # Store metadata directly on the function - no wrapper needed
         func._openapi = {
-            "summary": summary,
+            "name": name,
             "description": description,
             "tags": tags or [],
             "parameters": parameters or [],
@@ -629,7 +629,7 @@ def register_api_class(
                 plugin_name=plugin_name,
                 path=full_path,
                 method=method_name,
-                summary=openapi_meta["summary"],
+                name=openapi_meta["name"],
                 description=openapi_meta.get("description", ""),
                 tags=openapi_meta.get("tags") or [plugin_name],
                 parameters=all_params,
