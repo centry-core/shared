@@ -500,8 +500,11 @@ def extract_path_params_from_url(url_params: List[str]) -> List[Dict]:
     Extract OpenAPI parameters from Flask url_params.
 
     Converts ['<int:project_id>/<int:config_id>'] to OpenAPI parameters.
+    Ensures no duplicate parameter names.
     """
     params = []
+    seen_names = set()
+
     if not url_params:
         return params
 
@@ -517,6 +520,11 @@ def extract_path_params_from_url(url_params: List[str]) -> List[Dict]:
                     param_type = "string"
                     param_name = inner
 
+                # Skip if we've already added this parameter
+                if param_name in seen_names:
+                    continue
+
+                seen_names.add(param_name)
                 schema_type = "integer" if param_type == "int" else "string"
 
                 params.append({
@@ -539,6 +547,9 @@ def register_api_class(
     """
     Register all decorated methods from an API class.
 
+    Supports both direct method decoration and mode handler patterns.
+    For APIs using mode_handlers, will recursively scan handler classes.
+
     Args:
         api_class: The API class with @openapi decorated methods
         plugin_name: Plugin name for grouping
@@ -549,52 +560,67 @@ def register_api_class(
         registry = openapi_registry
 
     url_params = getattr(api_class, "url_params", [])
-    path_params = extract_path_params_from_url(url_params)
 
-    # Build full path
+    # Build full path and extract params
     if url_params:
-        # Use first url_param pattern
-        url_suffix = url_params[0]
+        # When using with_modes(), multiple patterns are generated
+        # Select the pattern with the MOST parameters (most complete)
+        # This ensures we document all possible parameters in OpenAPI
+        url_suffix = max(url_params, key=lambda x: x.count('<'))
         full_path = f"{base_path}/{url_suffix}" if url_suffix else base_path
+        # Extract path params from the most complete pattern
+        path_params = extract_path_params_from_url([url_suffix])
     else:
         full_path = base_path
+        path_params = []
 
     # Convert to OpenAPI format
     full_path = full_path.replace("<int:", "{").replace("<string:", "{").replace(">", "}")
 
-    for method_name in ["get", "post", "put", "delete", "patch"]:
-        method = getattr(api_class, method_name, None)
-        if method is None:
-            continue
+    # Check for mode handlers (e.g., elitea_core pattern)
+    mode_handlers = getattr(api_class, "mode_handlers", {})
+    classes_to_check = [api_class]  # Start with the API class itself
 
-        # Check for _openapi metadata
-        openapi_meta = getattr(method, "_openapi", None)
-        if openapi_meta is None:
-            continue
+    # Add all mode handler classes
+    if mode_handlers:
+        log.debug(f"OpenAPI: Found mode_handlers in {api_class.__name__}: {list(mode_handlers.keys())}")
+        classes_to_check.extend(mode_handlers.values())
 
-        # Merge path params with explicit params
-        all_params = list(path_params)
-        for param in openapi_meta.get("parameters", []):
-            # Don't duplicate path params
-            if not any(p["name"] == param["name"] for p in all_params):
-                all_params.append(param)
+    # Check all classes (API class + mode handlers) for decorated methods
+    endpoints_registered = 0
+    for check_class in classes_to_check:
+        for method_name in ["get", "post", "put", "delete", "patch"]:
+            method = getattr(check_class, method_name, None)
+            if method is None:
+                continue
 
-        registry.register_endpoint(
-            plugin_name=plugin_name,
-            path=full_path,
-            method=method_name,
-            summary=openapi_meta["summary"],
-            description=openapi_meta.get("description", ""),
-            tags=openapi_meta.get("tags") or [plugin_name],
-            parameters=all_params,
-            request_body=openapi_meta.get("request_body"),
-            response_model=openapi_meta.get("response_model"),
-            responses=openapi_meta.get("responses"),
-            deprecated=openapi_meta.get("deprecated", False),
-            mcp_tool=openapi_meta.get("mcp_tool", False),
-        )
+            # Check for _openapi metadata
+            openapi_meta = getattr(method, "_openapi", None)
+            if openapi_meta is None:
+                continue
 
+            # Merge path params with explicit params
+            all_params = list(path_params)
+            for param in openapi_meta.get("parameters", []):
+                # Don't duplicate path params
+                if not any(p["name"] == param["name"] for p in all_params):
+                    all_params.append(param)
 
+            registry.register_endpoint(
+                plugin_name=plugin_name,
+                path=full_path,
+                method=method_name,
+                summary=openapi_meta["summary"],
+                description=openapi_meta.get("description", ""),
+                tags=openapi_meta.get("tags") or [plugin_name],
+                parameters=all_params,
+                request_body=openapi_meta.get("request_body"),
+                response_model=openapi_meta.get("response_model"),
+                responses=openapi_meta.get("responses"),
+                deprecated=openapi_meta.get("deprecated", False),
+                mcp_tool=openapi_meta.get("mcp_tool", False),
+            )
+            endpoints_registered += 1
 
 
 def register_api_folder(
@@ -617,19 +643,6 @@ def register_api_folder(
 
     Returns:
         Number of API classes registered
-
-    Example:
-        from .api import v2 as api_v2
-
-        register_api_folder(
-            api_package=api_v2,
-            plugin_name="configurations",
-            base_path="/api/v2/configurations",
-        )
-        # Will register:
-        #   configurations.py → /api/v2/configurations/configurations
-        #   models.py → /api/v2/configurations/models
-        #   types.py → /api/v2/configurations/types
     """
     import importlib
     import pkgutil
@@ -639,23 +652,18 @@ def register_api_folder(
 
     registered_count = 0
 
-    # Get package path for discovery
     if hasattr(api_package, "__path__"):
-        # It's a package, iterate through submodules
         for importer, module_name, is_pkg in pkgutil.iter_modules(api_package.__path__):
             if module_name.startswith("_"):
                 continue
 
             try:
-                # Import the submodule
                 module = importlib.import_module(f"{api_package.__name__}.{module_name}")
 
-                # Find API class in module
                 api_class = getattr(module, "API", None)
                 if api_class is None:
                     continue
 
-                # Check if it has url_params (confirms it's a valid API class)
                 if not hasattr(api_class, "url_params"):
                     continue
 
@@ -664,18 +672,15 @@ def register_api_folder(
 
                 register_api_class(api_class, plugin_name, path, registry)
                 registered_count += 1
-                log.debug(f"OpenAPI: Registered {module_name}.API at {path}")
 
             except Exception as e:
                 log.warning(f"OpenAPI: Failed to register {module_name}: {e}")
 
     else:
-        # It's a module, look for API classes directly
         for name in dir(api_package):
             obj = getattr(api_package, name)
             if isinstance(obj, type) and hasattr(obj, "url_params") and name == "API":
                 register_api_class(obj, plugin_name, base_path, registry)
                 registered_count += 1
 
-    log.info(f"OpenAPI: Registered {registered_count} endpoints from {api_package.__name__}")
     return registered_count
