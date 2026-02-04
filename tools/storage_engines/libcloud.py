@@ -37,6 +37,7 @@ from .. import db
 from ..minio_tools import space_monitor, throughput_monitor  # pylint: disable=E0401
 from ...models.storage import StorageMeta
 from . import fs_encode_name, fs_decode_name
+from .storage_mixin import ManualCleanupMixin
 
 
 class EngineMeta(type):
@@ -46,7 +47,7 @@ class EngineMeta(type):
         log.info("StorageEngine.cls.__getattr__(%s)", name)
 
 
-class EngineBase(metaclass=EngineMeta):
+class EngineBase(ManualCleanupMixin, metaclass=EngineMeta):
     """ Engine base class """
 
     def purify_bucket_name(self, name: str) -> str:
@@ -490,7 +491,3 @@ class Engine(EngineBase):
         #
         project = rpc_manager.call.project_get_by_id(project_id=project_id)
         return cls(project, configuration_title=configuration_title)
-
-
-
-# TODO: engine init() and retention watcher thread
