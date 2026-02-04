@@ -191,7 +191,7 @@ class Module(module.ModuleModel):
                 self.context.rpc_manager.timeout(5).scheduling_create_if_not_exists({
                     'rpc_func': 'shared_storage_cleanup',
                     'name': 'Storage Retention Cleanup',
-                    'cron': '* * * * *',
+                    'cron': '0 0 * * *',
                     'active': True
                 })
             else:
