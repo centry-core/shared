@@ -350,6 +350,8 @@ def endpoint_metrics(function):
                     'project.id': payload.get('project_id'),
                     'user.id': payload.get('user'),
                     'trace.id': trace_id,
+                    # Data type for OTEL Collector routing
+                    'telemetry.data_type': 'api_traces',
                 }
             ) as span:
                 try:
