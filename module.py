@@ -154,6 +154,7 @@ class Module(module.ModuleModel):
         self.descriptor.register_tool('openapi_registry', openapi_registry)
 
         # self.descriptor.init_api()
+        self.descriptor.init_rpcs()
         self.descriptor.init_blueprint()
 
     def ready(self):
@@ -183,6 +184,21 @@ class Module(module.ModuleModel):
                 with db.get_session(project["id"]) as tenant_db:
                     tenant_metadata.create_all(bind=tenant_db.connection())
                     tenant_db.commit()
+
+        try:
+            from tools import config as c
+            if c.STORAGE_ENGINE != "s3":
+                self.context.rpc_manager.timeout(5).scheduling_create_if_not_exists({
+                    'rpc_func': 'shared_storage_cleanup',
+                    'name': 'Storage Retention Cleanup',
+                    'cron': '0 0 * * *',
+                    'active': True
+                })
+            else:
+                log.debug(f"Storage engine is '{c.STORAGE_ENGINE}', skipping retention cleanup task registration")
+        except:
+            log.warning('Scheduling plugin not available, storage retention cleanup will not run automatically')
+
 
     def deinit(self):
         """ De-init module """
