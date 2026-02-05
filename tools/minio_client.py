@@ -253,7 +253,49 @@ class MinioClientABC(ABC, EventManagerMixin):
                 return True
         return False
 
+    def copy_object(
+        self, source_bucket: str, source_key: str, dest_bucket: str, dest_key: str
+    ):
+        """
+        Server-side copy for S3/Minio (no data transfer through application).
 
+        Note: S3 copy_object has a 5GB limit. For larger files, multipart copy
+        should be used (not implemented yet - future optimization).
+        """
+        copy_source = {
+            'Bucket': self.format_bucket_name(source_bucket),
+            'Key': source_key
+        }
+        self.s3_client.copy_object(
+            CopySource=copy_source,
+            Bucket=self.format_bucket_name(dest_bucket),
+            Key=dest_key
+        )
+
+    def move_object(
+        self, source_bucket: str, source_key: str, dest_bucket: str, dest_key: str
+    ):
+        """
+        Move object between buckets with 5GB size limit.
+
+        For S3, copy_object has a 5GB limit. Files larger than this require
+        multipart copy (not implemented yet).
+        """
+        # Check file size limit (5GB)
+        max_move_size = 5 * 1024 * 1024 * 1024  # 5GB in bytes
+        file_size = self.get_file_size(source_bucket, source_key)
+
+        if file_size > max_move_size:
+            raise ValueError(
+                f"File size ({file_size / (1024**3):.2f} GB) exceeds maximum allowed "
+                f"size for move operations ({max_move_size / (1024**3):.0f} GB). "
+                f"For files larger than 5GB, multipart copy must be used."
+            )
+
+        self.copy_object(source_bucket, source_key, dest_bucket, dest_key)
+        self.remove_file(source_bucket, source_key)
+
+#
 
 class S3MinioClient(MinioClientABC):
     @classmethod
