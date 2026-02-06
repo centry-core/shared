@@ -254,7 +254,6 @@ class MinioClientABC(ABC, EventManagerMixin):
         return False
 
 
-
 class S3MinioClient(MinioClientABC):
     @classmethod
     def from_project_id(cls, project_id: int,
