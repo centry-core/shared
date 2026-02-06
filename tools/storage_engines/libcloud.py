@@ -493,14 +493,14 @@ class EngineBase(ManualCleanupMixin, metaclass=EngineMeta):
                         log.warning(f"Failed to delete temporary file {temp_file_path}: {e}")
 
     def move_object(self, source_bucket, source_filename, destination_bucket, destination_filename):
-        # Check file size limit (5GB)
-        MAX_MOVE_SIZE = 5 * 1024 * 1024 * 1024  # 5GB in bytes
+        # Check file size limit (128 MB)
+        MAX_MOVE_SIZE = 128 * 1024 * 1024
         file_size = self.get_file_size(source_bucket, source_filename)
 
         if file_size > MAX_MOVE_SIZE:
             raise ValueError(
-                f"File size ({file_size / (1024**3):.2f} GB) exceeds maximum allowed "
-                f"size for move operations ({MAX_MOVE_SIZE / (1024**3):.0f} GB)"
+                f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds the maximum allowed "
+                f"for move operation ({MAX_MOVE_SIZE / (1024 * 1024)} MB)"
             )
 
         self.copy_object(source_bucket, source_filename, destination_bucket, destination_filename)
