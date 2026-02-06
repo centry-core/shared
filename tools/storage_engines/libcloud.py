@@ -431,6 +431,81 @@ class EngineBase(ManualCleanupMixin, metaclass=EngineMeta):
         except:  # pylint: disable=W0702
             return False
 
+    def copy_object(self, source_bucket, source_filename, destination_bucket, destination_filename):
+        import tempfile
+
+        source_bucket_name = self.format_bucket_name(source_bucket)
+        source_bucket_key = fs_encode_name(
+            name=source_bucket_name,
+            kind="bucket",
+            encoder=self.storage_libcloud_encoder,
+        )
+        source_file_key = fs_encode_name(
+            name=source_filename,
+            kind="file",
+            encoder=self.storage_libcloud_encoder,
+        )
+        #
+        destination_bucket_name = self.format_bucket_name(destination_bucket)
+        destination_bucket_key = fs_encode_name(
+            name=destination_bucket_name,
+            kind="bucket",
+            encoder=self.storage_libcloud_encoder,
+        )
+        destination_file_key = fs_encode_name(
+            name=destination_filename,
+            kind="file",
+            encoder=self.storage_libcloud_encoder,
+        )
+        #
+        source_obj = self.driver.get_object(source_bucket_key, source_file_key)
+        destination_container = self.driver.get_container(destination_bucket_key)
+
+        # Check if driver supports copy_object (not all drivers do, e.g., LocalStorageDriver)
+        if hasattr(self.driver, 'copy_object') and callable(getattr(self.driver, 'copy_object')):
+            self.driver.copy_object(
+                source_obj,
+                destination_container,
+                destination_file_key
+            )
+        else:
+            # Fallback: disk-based copy for drivers without copy_object support
+            # Use temporary file to avoid loading entire file into memory
+            temp_file_path = None
+            try:
+                # Download to temporary file
+                with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.tmp') as temp_file:
+                    for chunk in self.driver.download_object_as_stream(source_obj, chunk_size=8192):
+                        temp_file.write(chunk)
+                    temp_file_path = temp_file.name
+
+                # Upload from temporary file
+                with open(temp_file_path, 'rb') as f:
+                    self.driver.upload_object_via_stream(iter(lambda: f.read(8192), b''),
+                                                        destination_container,
+                                                        destination_file_key)
+            finally:
+                # Clean up temporary file
+                if temp_file_path and os.path.exists(temp_file_path):
+                    try:
+                        os.unlink(temp_file_path)
+                    except Exception as e:
+                        log.warning(f"Failed to delete temporary file {temp_file_path}: {e}")
+
+    def move_object(self, source_bucket, source_filename, destination_bucket, destination_filename):
+        # Check file size limit (128 MB)
+        MAX_MOVE_SIZE = 128 * 1024 * 1024
+        file_size = self.get_file_size(source_bucket, source_filename)
+
+        if file_size > MAX_MOVE_SIZE:
+            raise ValueError(
+                f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds the maximum allowed "
+                f"for move operation ({MAX_MOVE_SIZE / (1024 * 1024)} MB)"
+            )
+
+        self.copy_object(source_bucket, source_filename, destination_bucket, destination_filename)
+        self.remove_file(source_bucket, source_filename)
+
 
 class Engine(EngineBase):
     """ Engine class """
