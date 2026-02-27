@@ -47,9 +47,9 @@ class Config(metaclass=SingletonABC):  # pylint: disable=R0903
                 ("BUCKET_RETENTION_DAYS", "int", 7),
                 # Used in carrier-io/secrets · module.py to set influx_ip and rabbit_host
                 # TODO: specify EXTERNAL_REDIS_HOST and others explicitly
-                ("APP_IP", "str"),
+                ("APP_IP", "str", None),
                 # Used to set URLs; galloper_url in carrier-io/secrets · module.py
-                ("APP_HOST", "str"),
+                ("APP_HOST", "str", None),
                 # Only used in carrier-io/shared · tools/loki_tools.py;
                 # also use in centry_gaid cookie secure flag
                 ("APP_SCHEME", "str", "http"),
