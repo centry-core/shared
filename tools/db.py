@@ -96,9 +96,12 @@ if c.FORCE_INJECT_DB or context.db.url == "sqlite://":
 engine = context.db.engine
 
 # DB: transitional for 'public' schemas on present deployments
-with engine.connect() as connection:
-    connection.execute(CreateSchema(c.POSTGRES_SCHEMA, if_not_exists=True))
-    connection.commit()
+try:
+    with engine.connect() as connection:
+        connection.execute(CreateSchema(c.POSTGRES_SCHEMA, if_not_exists=True))
+        connection.commit()
+except Exception:  # pylint: disable=W0703
+    log.warning("Could not ensure DB schema exists (DB may not be configured on this pylon)")
 
 
 # DB: local

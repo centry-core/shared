@@ -100,21 +100,27 @@ class Module(module.ModuleModel):
         from .tools.loki_tools import LokiLogFetcher
         self.descriptor.register_tool('LokiLogFetcher', LokiLogFetcher)
 
-        from .tools import db
-        self.db = db
-        self.descriptor.register_tool('db', db)
+        try:
+            from .tools import db
+            self.db = db
+            self.descriptor.register_tool('db', db)
 
-        from .tools import db_tools, db_migrations
-        self.descriptor.register_tool('db_tools', db_tools)
-        self.descriptor.register_tool('db_migrations', db_migrations)
+            from .tools import db_tools, db_migrations
+            self.descriptor.register_tool('db_tools', db_tools)
+            self.descriptor.register_tool('db_migrations', db_migrations)
 
-        # self.context.app.config.from_object(self.config)
-        from .init_db import init_db
-        init_db()
+            # self.context.app.config.from_object(self.config)
+            from .init_db import init_db
+            init_db()
+        except Exception:  # pylint: disable=W0703
+            log.warning("DB initialization skipped (database may not be configured on this pylon)")
 
-        from .tools.minio_client import MinioClient
-        self.descriptor.register_tool('MinioClient', MinioClient)
-        logging.getLogger("botocore").setLevel(logging.INFO)
+        try:
+            from .tools.minio_client import MinioClient
+            self.descriptor.register_tool('MinioClient', MinioClient)
+            logging.getLogger("botocore").setLevel(logging.INFO)
+        except Exception:  # pylint: disable=W0703
+            log.warning("MinioClient initialization skipped")
 
         from .tools.vault_tools import VaultClient
         self.descriptor.register_tool('VaultClient', VaultClient)
@@ -159,31 +165,38 @@ class Module(module.ModuleModel):
 
     def ready(self):
         """ Ready callback """
+        if self.db is None:
+            log.info("Shared ready: DB not initialized, skipping metadata apply")
+            return
+        #
         from .tools import db  # pylint: disable=C0415
         #
-        if self.descriptor.config.get("apply_shared_metadata", True):
-            log.info("Getting shared metadata")
-            shared_metadata = db.get_shared_metadata()
+        try:
+            if self.descriptor.config.get("apply_shared_metadata", True):
+                log.info("Getting shared metadata")
+                shared_metadata = db.get_shared_metadata()
+                #
+                log.info("Applying shared metadata")
+                with db.get_session(None) as shared_db:
+                    shared_metadata.create_all(bind=shared_db.connection())
+                    shared_db.commit()
             #
-            log.info("Applying shared metadata")
-            with db.get_session(None) as shared_db:
-                shared_metadata.create_all(bind=shared_db.connection())
-                shared_db.commit()
-        #
-        if self.descriptor.config.get("apply_project_metadata", True):
-            log.info("Getting project metadata")
-            tenant_metadata = db.get_tenant_specific_metadata()
-            #
-            log.info("Getting project list")
-            project_list = self.context.rpc_manager.timeout(120).project_list(
-                filter_={"create_success": True},
-            )
-            #
-            for project in project_list:
-                log.info("Applying project metadata: %s", project)
-                with db.get_session(project["id"]) as tenant_db:
-                    tenant_metadata.create_all(bind=tenant_db.connection())
-                    tenant_db.commit()
+            if self.descriptor.config.get("apply_project_metadata", True):
+                log.info("Getting project metadata")
+                tenant_metadata = db.get_tenant_specific_metadata()
+                #
+                log.info("Getting project list")
+                project_list = self.context.rpc_manager.timeout(120).project_list(
+                    filter_={"create_success": True},
+                )
+                #
+                for project in project_list:
+                    log.info("Applying project metadata: %s", project)
+                    with db.get_session(project["id"]) as tenant_db:
+                        tenant_metadata.create_all(bind=tenant_db.connection())
+                        tenant_db.commit()
+        except Exception:  # pylint: disable=W0703
+            log.warning("Shared ready: failed to apply DB metadata (database may not be available)")
 
         try:
             from tools import config as c
