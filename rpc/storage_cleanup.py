@@ -22,6 +22,11 @@ class RPC:
             dict: Cleanup results with statistics per project
         """
         try:
+            try:
+                self.context.rpc_manager.timeout(60).artifacts_check_bucket_expiration_notifications()
+            except Exception as e:
+                log.warning('Failed to run bucket expiration notifications: %s', e)
+
             if not issubclass(MinioClient, ManualCleanupMixin):
                 return {
                     "skipped": True,
